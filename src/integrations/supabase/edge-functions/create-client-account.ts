@@ -82,7 +82,7 @@ Deno.serve(async (req) => {
     }
 
     // 2. Create the client record
-    const { data: clientData, error: clientError } = await supabaseAdmin
+    const { data: newClientData, error: clientError } = await supabaseAdmin
       .from('clients')
       .insert({
         id: authData.user.id,
@@ -109,7 +109,7 @@ Deno.serve(async (req) => {
       JSON.stringify({
         success: true,
         message: 'Client account created successfully',
-        clientId: clientData.id,
+        clientId: newClientData.id,
       }),
       {
         status: 200,
