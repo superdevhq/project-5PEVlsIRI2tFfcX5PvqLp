@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import ClientList from '@/components/ClientList';
 import WorkoutPlanner from '@/components/WorkoutPlanner';
 import NutritionPlanner from '@/components/NutritionPlanner';
@@ -9,6 +10,7 @@ import MessagingInterface from '@/components/MessagingInterface';
 import ProgressTracker from '@/components/ProgressTracker';
 import { mockClients } from '@/data/mockData';
 import { Client } from '@/types';
+import { Dumbbell, Utensils, MessageSquare, LineChart } from 'lucide-react';
 
 const Dashboard = () => {
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
@@ -35,7 +37,7 @@ const Dashboard = () => {
         {selectedClient ? (
           <>
             <div className="flex items-center gap-4 mb-6">
-              <div className="h-16 w-16 rounded-full overflow-hidden">
+              <div className="h-16 w-16 rounded-full overflow-hidden client-avatar">
                 <img 
                   src={selectedClient.profileImage || "https://via.placeholder.com/150"} 
                   alt={selectedClient.name}
@@ -109,31 +111,42 @@ const Dashboard = () => {
                       <CardDescription>Common tasks for this client</CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <div className="flex flex-wrap gap-4">
-                        <button 
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                        <Button 
+                          variant="default"
+                          className="h-auto py-6 flex flex-col items-center justify-center gap-2 w-full"
                           onClick={() => setActiveTab("workouts")}
-                          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
                         >
-                          Create Workout
-                        </button>
-                        <button 
+                          <Dumbbell className="h-6 w-6" />
+                          <span>Create Workout</span>
+                        </Button>
+                        
+                        <Button 
+                          variant="default"
+                          className="h-auto py-6 flex flex-col items-center justify-center gap-2 w-full"
                           onClick={() => setActiveTab("nutrition")}
-                          className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
                         >
-                          Plan Nutrition
-                        </button>
-                        <button 
+                          <Utensils className="h-6 w-6" />
+                          <span>Plan Nutrition</span>
+                        </Button>
+                        
+                        <Button 
+                          variant="default"
+                          className="h-auto py-6 flex flex-col items-center justify-center gap-2 w-full"
                           onClick={() => setActiveTab("messages")}
-                          className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors"
                         >
-                          Send Message
-                        </button>
-                        <button 
+                          <MessageSquare className="h-6 w-6" />
+                          <span>Send Message</span>
+                        </Button>
+                        
+                        <Button 
+                          variant="default"
+                          className="h-auto py-6 flex flex-col items-center justify-center gap-2 w-full"
                           onClick={() => setActiveTab("progress")}
-                          className="px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 transition-colors"
                         >
-                          Update Progress
-                        </button>
+                          <LineChart className="h-6 w-6" />
+                          <span>Update Progress</span>
+                        </Button>
                       </div>
                     </CardContent>
                   </Card>
@@ -165,8 +178,7 @@ const Dashboard = () => {
                 Select a client from the sidebar to view their details and manage their fitness journey.
               </p>
               <div className="flex justify-center">
-                <button 
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                <Button
                   onClick={() => {
                     // For demo purposes, select the first client
                     if (mockClients.length > 0) {
@@ -175,7 +187,7 @@ const Dashboard = () => {
                   }}
                 >
                   Select a Client
-                </button>
+                </Button>
               </div>
             </div>
           </div>
