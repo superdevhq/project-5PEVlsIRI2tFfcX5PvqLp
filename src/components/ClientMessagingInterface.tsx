@@ -10,10 +10,11 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import { format } from 'date-fns';
 import { Send, Loader2, MessageSquare } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 interface ClientMessagingInterfaceProps {
-  trainerId: string;
-  trainerName: string;
+  trainerId?: string;
+  trainerName?: string;
   trainerAvatar?: string;
 }
 
@@ -23,11 +24,80 @@ const ClientMessagingInterface = ({
   trainerAvatar 
 }: ClientMessagingInterfaceProps) => {
   const { client } = useAuth();
-  const { messages, loading, sendMessage } = useMessages(client?.id || '');
+  const { messages, loading: messagesLoading, sendMessage } = useMessages(client?.id || '');
   const [newMessage, setNewMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [trainerInfo, setTrainerInfo] = useState<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+
+  // Fetch trainer info if not provided
+  useEffect(() => {
+    const fetchTrainerInfo = async () => {
+      if (!client) return;
+      
+      // If trainer info is already provided as props, use that
+      if (trainerId && trainerName) {
+        setTrainerInfo({
+          id: trainerId,
+          full_name: trainerName,
+          avatar_url: trainerAvatar
+        });
+        setLoading(false);
+        return;
+      }
+      
+      try {
+        setLoading(true);
+        console.log("Fetching trainer info for client:", client);
+        
+        // First check if we need to get the trainer_id from the clients table
+        const { data: clientData, error: clientError } = await supabase
+          .from('clients')
+          .select('trainer_id')
+          .eq('id', client.id)
+          .single();
+          
+        if (clientError) {
+          console.error("Error fetching client data:", clientError);
+          throw clientError;
+        }
+        
+        console.log("Client data with trainer_id:", clientData);
+        
+        if (clientData?.trainer_id) {
+          // Then get the trainer details
+          const { data: trainerData, error: trainerError } = await supabase
+            .from('trainers')
+            .select('*')
+            .eq('id', clientData.trainer_id)
+            .single();
+            
+          if (trainerError) {
+            console.error("Error fetching trainer data:", trainerError);
+            throw trainerError;
+          }
+          
+          console.log("Trainer data fetched:", trainerData);
+          setTrainerInfo(trainerData);
+        } else {
+          console.warn("No trainer_id found for client");
+        }
+      } catch (error) {
+        console.error("Error fetching trainer info:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load trainer information",
+          variant: "destructive"
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchTrainerInfo();
+  }, [client, trainerId, trainerName, trainerAvatar, toast]);
 
   // Scroll to bottom of messages when new messages arrive
   useEffect(() => {
@@ -35,7 +105,7 @@ const ClientMessagingInterface = ({
   }, [messages]);
 
   const handleSendMessage = async () => {
-    if (!newMessage.trim() || !client) return;
+    if (!newMessage.trim() || !client || !trainerInfo) return;
     
     try {
       setIsSending(true);
@@ -81,6 +151,38 @@ const ClientMessagingInterface = ({
 
   const messageGroups = groupMessagesByDate();
 
+  if (loading || messagesLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <h2 className="text-2xl font-bold">Messages with Your Trainer</h2>
+        </div>
+        <Card className="h-[600px] flex flex-col justify-center items-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="mt-4 text-gray-500">Loading messages...</p>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!trainerInfo) {
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <h2 className="text-2xl font-bold">Messages</h2>
+        </div>
+        <Card className="h-[600px] flex flex-col justify-center items-center p-8 text-center">
+          <MessageSquare className="h-16 w-16 text-gray-300 mb-4" />
+          <h3 className="text-xl font-medium mb-2">No Trainer Assigned</h3>
+          <p className="text-gray-500 max-w-md">
+            You don't have a trainer assigned to your account yet. Once a trainer is assigned to you, 
+            you'll be able to message them directly from here.
+          </p>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -91,18 +193,14 @@ const ClientMessagingInterface = ({
         <CardHeader className="pb-2">
           <CardTitle className="text-lg flex items-center gap-2">
             <Avatar className="h-8 w-8">
-              <AvatarImage src={trainerAvatar} alt={trainerName} />
-              <AvatarFallback>{trainerName.charAt(0)}</AvatarFallback>
+              <AvatarImage src={trainerInfo.avatar_url} alt={trainerInfo.full_name} />
+              <AvatarFallback>{trainerInfo.full_name.charAt(0)}</AvatarFallback>
             </Avatar>
-            <span>{trainerName}</span>
+            <span>{trainerInfo.full_name}</span>
           </CardTitle>
         </CardHeader>
         <CardContent className="flex-1 overflow-y-auto p-4 space-y-6">
-          {loading ? (
-            <div className="flex justify-center items-center h-full">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
-          ) : messages.length === 0 ? (
+          {messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center text-gray-500">
               <MessageSquare className="h-12 w-12 mb-2 opacity-20" />
               <p>No messages yet</p>
