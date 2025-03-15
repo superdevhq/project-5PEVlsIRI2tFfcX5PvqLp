@@ -79,6 +79,9 @@ export default function CreateClientAccount({ onClientCreated }: CreateClientAcc
               weight: formData.weight,
               goals: formData.goals,
             }
+          },
+          headers: {
+            Authorization: `Bearer ${session.access_token}`
           }
         }
       );
