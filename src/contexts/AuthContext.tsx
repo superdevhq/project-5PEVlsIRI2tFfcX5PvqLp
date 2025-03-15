@@ -8,9 +8,11 @@ interface AuthContextType {
   session: Session | null;
   user: User | null;
   trainer: any | null;
+  client: any | null;
+  userType: 'trainer' | 'client' | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, fullName: string) => Promise<void>;
+  signIn: (email: string, password: string, userType: 'trainer' | 'client') => Promise<void>;
+  signUp: (email: string, password: string, fullName: string, userType: 'trainer' | 'client') => Promise<void>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
 }
@@ -21,6 +23,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [trainer, setTrainer] = useState<any | null>(null);
+  const [client, setClient] = useState<any | null>(null);
+  const [userType, setUserType] = useState<'trainer' | 'client' | null>(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
@@ -30,7 +34,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        fetchTrainerProfile(session.user.id);
+        checkUserType(session.user.id);
       } else {
         setLoading(false);
       }
@@ -42,9 +46,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(session);
         setUser(session?.user ?? null);
         if (session?.user) {
-          fetchTrainerProfile(session.user.id);
+          checkUserType(session.user.id);
         } else {
           setTrainer(null);
+          setClient(null);
+          setUserType(null);
           setLoading(false);
         }
       }
@@ -55,27 +61,56 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const fetchTrainerProfile = async (userId: string) => {
+  const checkUserType = async (userId: string) => {
     try {
-      const { data, error } = await supabase
+      // Check if user is a trainer
+      const { data: trainerData, error: trainerError } = await supabase
         .from('trainers')
         .select('*')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
 
-      if (error) {
-        throw error;
+      if (trainerError) {
+        throw trainerError;
       }
 
-      setTrainer(data);
+      if (trainerData) {
+        setTrainer(trainerData);
+        setClient(null);
+        setUserType('trainer');
+        setLoading(false);
+        return;
+      }
+
+      // Check if user is a client
+      const { data: clientData, error: clientError } = await supabase
+        .from('clients')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (clientError) {
+        throw clientError;
+      }
+
+      if (clientData) {
+        setClient(clientData);
+        setTrainer(null);
+        setUserType('client');
+      } else {
+        // User is neither a trainer nor a client
+        setTrainer(null);
+        setClient(null);
+        setUserType(null);
+      }
     } catch (error) {
-      console.error('Error fetching trainer profile:', error);
+      console.error('Error checking user type:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = async (email: string, password: string, userType: 'trainer' | 'client') => {
     try {
       setLoading(true);
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -86,6 +121,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (error) {
         throw error;
       }
+
+      // Store the user type in local storage for persistence
+      localStorage.setItem('userType', userType);
+      setUserType(userType);
 
       toast({
         title: 'Welcome back!',
@@ -103,7 +142,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const signUp = async (email: string, password: string, fullName: string) => {
+  const signUp = async (email: string, password: string, fullName: string, userType: 'trainer' | 'client') => {
     try {
       setLoading(true);
       const { data, error } = await supabase.auth.signUp({
@@ -112,6 +151,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         options: {
           data: {
             full_name: fullName,
+            user_type: userType,
           },
         },
       });
@@ -119,6 +159,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (error) {
         throw error;
       }
+
+      // Store the user type in local storage for persistence
+      localStorage.setItem('userType', userType);
+      setUserType(userType);
 
       toast({
         title: 'Account created!',
@@ -144,6 +188,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (error) {
         throw error;
       }
+
+      // Clear user type from local storage
+      localStorage.removeItem('userType');
+      setUserType(null);
 
       toast({
         title: 'Signed out',
@@ -191,6 +239,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     session,
     user,
     trainer,
+    client,
+    userType,
     loading,
     signIn,
     signUp,
