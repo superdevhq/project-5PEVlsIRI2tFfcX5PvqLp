@@ -8,7 +8,7 @@ export function useClients() {
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
-  const { user } = useAuth();
+  const { user, userType, trainer } = useAuth();
 
   useEffect(() => {
     if (!user) return;
@@ -23,7 +23,7 @@ export function useClients() {
           event: '*', 
           schema: 'public', 
           table: 'clients',
-          filter: `trainer_id=eq.${user.id}`
+          filter: userType === 'trainer' ? `trainer_id=eq.${user.id}` : null
         }, 
         () => {
           fetchClients();
@@ -34,7 +34,7 @@ export function useClients() {
     return () => {
       subscription.unsubscribe();
     };
-  }, [user]);
+  }, [user, userType]);
 
   const fetchClients = async () => {
     if (!user) return;
@@ -42,32 +42,39 @@ export function useClients() {
     try {
       setLoading(true);
       
-      const { data, error } = await supabase
-        .from('clients')
-        .select('*')
-        .eq('trainer_id', user.id)
-        .order('name');
+      // If user is a trainer, fetch their clients
+      if (userType === 'trainer') {
+        console.log('Fetching clients for trainer:', user.id);
+        const { data, error } = await supabase
+          .from('clients')
+          .select('*')
+          .eq('trainer_id', user.id)
+          .order('name');
+          
+        if (error) {
+          throw error;
+        }
         
-      if (error) {
-        throw error;
+        // Transform the data to match our Client type
+        const transformedClients: Client[] = data.map(client => ({
+          id: client.id,
+          name: client.name,
+          email: client.email || '',
+          phone: client.phone || '',
+          age: client.age || 0,
+          height: client.height || 0,
+          weight: client.weight || 0,
+          goals: client.goals || '',
+          notes: client.notes || '',
+          joinDate: client.join_date,
+          profileImage: client.profile_image
+        }));
+        
+        setClients(transformedClients);
+      } else {
+        // If user is a client, they don't have clients
+        setClients([]);
       }
-      
-      // Transform the data to match our Client type
-      const transformedClients: Client[] = data.map(client => ({
-        id: client.id,
-        name: client.name,
-        email: client.email || '',
-        phone: client.phone || '',
-        age: client.age || 0,
-        height: client.height || 0,
-        weight: client.weight || 0,
-        goals: client.goals || '',
-        notes: client.notes || '',
-        joinDate: client.join_date,
-        profileImage: client.profile_image
-      }));
-      
-      setClients(transformedClients);
     } catch (err: any) {
       setError(err);
       console.error('Error fetching clients:', err);
@@ -78,6 +85,7 @@ export function useClients() {
   
   const addClient = async (client: Omit<Client, 'id'>) => {
     if (!user) throw new Error('User not authenticated');
+    if (userType !== 'trainer') throw new Error('Only trainers can add clients');
     
     try {
       const { data, error } = await supabase
