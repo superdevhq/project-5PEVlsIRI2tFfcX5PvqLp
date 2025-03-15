@@ -8,13 +8,16 @@ import WorkoutPlanner from '@/components/WorkoutPlanner';
 import NutritionPlanner from '@/components/NutritionPlanner';
 import MessagingInterface from '@/components/MessagingInterface';
 import ProgressTracker from '@/components/ProgressTracker';
-import { mockClients } from '@/data/mockData';
+import { useClients } from '@/hooks/useClients';
+import { useAuth } from '@/contexts/AuthContext';
 import { Client } from '@/types';
-import { Dumbbell, Utensils, MessageSquare, LineChart } from 'lucide-react';
+import { Dumbbell, Utensils, MessageSquare, LineChart, LogOut, User } from 'lucide-react';
 
 const Dashboard = () => {
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [activeTab, setActiveTab] = useState("overview");
+  const { clients } = useClients();
+  const { signOut, trainer } = useAuth();
 
   const handleClientSelect = (client: Client) => {
     setSelectedClient(client);
@@ -29,7 +32,39 @@ const Dashboard = () => {
           <h1 className="text-2xl font-bold text-blue-600">FitPro AI</h1>
           <p className="text-gray-500 text-sm">Personal Trainer Dashboard</p>
         </div>
+        
+        {trainer && (
+          <div className="mb-6 flex items-center gap-3 p-3 bg-blue-50 rounded-md">
+            <div className="h-10 w-10 rounded-full overflow-hidden flex-shrink-0 bg-blue-200 flex items-center justify-center">
+              {trainer.avatar_url ? (
+                <img 
+                  src={trainer.avatar_url} 
+                  alt={trainer.full_name || 'Trainer'}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <User className="h-5 w-5 text-blue-600" />
+              )}
+            </div>
+            <div className="overflow-hidden">
+              <p className="font-medium truncate">{trainer.full_name || 'Trainer'}</p>
+              <p className="text-xs text-gray-500 truncate">{trainer.email}</p>
+            </div>
+          </div>
+        )}
+        
         <ClientList onClientSelect={handleClientSelect} />
+        
+        <div className="mt-6 pt-6 border-t border-gray-200">
+          <Button 
+            variant="ghost" 
+            className="w-full justify-start text-gray-500 hover:text-gray-900"
+            onClick={signOut}
+          >
+            <LogOut className="mr-2 h-4 w-4" />
+            Sign Out
+          </Button>
+        </div>
       </div>
 
       {/* Main Content */}
@@ -39,7 +74,7 @@ const Dashboard = () => {
             <div className="flex items-center gap-4 mb-6">
               <div className="h-16 w-16 rounded-full overflow-hidden client-avatar">
                 <img 
-                  src={selectedClient.profileImage || "https://via.placeholder.com/150"} 
+                  src={selectedClient.profileImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(selectedClient.name)}`} 
                   alt={selectedClient.name}
                   className="h-full w-full object-cover"
                 />
@@ -95,11 +130,11 @@ const Dashboard = () => {
                       <div className="space-y-4">
                         <div>
                           <h4 className="font-medium text-gray-500 mb-1">Goals</h4>
-                          <p>{selectedClient.goals}</p>
+                          <p>{selectedClient.goals || 'No goals specified'}</p>
                         </div>
                         <div>
                           <h4 className="font-medium text-gray-500 mb-1">Notes</h4>
-                          <p>{selectedClient.notes}</p>
+                          <p>{selectedClient.notes || 'No notes'}</p>
                         </div>
                       </div>
                     </CardContent>
@@ -171,24 +206,18 @@ const Dashboard = () => {
             </Tabs>
           </>
         ) : (
-          <div className="flex flex-col items-center justify-center h-full">
+          <div className="flex flex-col items-center justify-center h-[calc(100vh-12rem)]">
             <div className="text-center max-w-md">
               <h2 className="text-2xl font-bold mb-2">Welcome to FitPro AI</h2>
-              <p className="text-gray-500 mb-6">
-                Select a client from the sidebar to view their details and manage their fitness journey.
-              </p>
-              <div className="flex justify-center">
-                <Button
-                  onClick={() => {
-                    // For demo purposes, select the first client
-                    if (mockClients.length > 0) {
-                      handleClientSelect(mockClients[0]);
-                    }
-                  }}
-                >
-                  Select a Client
-                </Button>
-              </div>
+              {clients.length > 0 ? (
+                <p className="text-gray-500 mb-6">
+                  Select a client from the sidebar to view their details and manage their fitness journey.
+                </p>
+              ) : (
+                <p className="text-gray-500 mb-6">
+                  Get started by adding your first client using the "Add New Client" button in the sidebar.
+                </p>
+              )}
             </div>
           </div>
         )}
