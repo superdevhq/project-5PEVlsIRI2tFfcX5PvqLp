@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import ClientList from '@/components/ClientList';
 import WorkoutPlanner from '@/components/WorkoutPlanner';
 import NutritionPlanner from '@/components/NutritionPlanner';
@@ -11,8 +12,9 @@ import ProgressTracker from '@/components/ProgressTracker';
 import { useClients } from '@/hooks/useClients';
 import { useAuth } from '@/contexts/AuthContext';
 import { Client } from '@/types';
-import { Dumbbell, Utensils, MessageSquare, LineChart, LogOut, User } from 'lucide-react';
+import { Dumbbell, Utensils, MessageSquare, LineChart, LogOut, User, Mail, Phone, Calendar, Activity, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { calculateBMI, getBMICategory, formatDate } from '@/lib/utils';
 
 const Dashboard = () => {
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
@@ -31,6 +33,10 @@ const Dashboard = () => {
   const handleClientSelect = (client: Client) => {
     setSelectedClient(client);
     setActiveTab("overview");
+  };
+
+  const handleBackToClients = () => {
+    setSelectedClient(null);
   };
 
   if (authLoading) {
@@ -89,17 +95,89 @@ const Dashboard = () => {
       <div className="flex-1 p-6">
         {selectedClient ? (
           <>
-            <div className="flex items-center gap-4 mb-6">
-              <div className="h-16 w-16 rounded-full overflow-hidden client-avatar">
-                <img 
-                  src={selectedClient.profileImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(selectedClient.name)}`} 
-                  alt={selectedClient.name}
-                  className="h-full w-full object-cover"
-                />
-              </div>
-              <div>
-                <h2 className="text-2xl font-bold">{selectedClient.name}</h2>
-                <p className="text-gray-500">{selectedClient.email} • {selectedClient.phone}</p>
+            <div className="mb-6">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="mb-4 text-gray-500"
+                onClick={handleBackToClients}
+              >
+                <ArrowLeft className="mr-1 h-4 w-4" />
+                Back to all clients
+              </Button>
+              
+              <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
+                <div className="flex flex-col md:flex-row gap-6">
+                  <div className="flex-shrink-0">
+                    <div className="h-24 w-24 rounded-full overflow-hidden border-4 border-blue-100">
+                      <img 
+                        src={selectedClient.profileImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(selectedClient.name)}`} 
+                        alt={selectedClient.name}
+                        className="h-full w-full object-cover"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="flex-1">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+                      <div>
+                        <h2 className="text-2xl font-bold">{selectedClient.name}</h2>
+                        <div className="flex flex-wrap items-center gap-3 mt-1 text-gray-500">
+                          <div className="flex items-center gap-1">
+                            <Mail className="h-4 w-4" />
+                            <span>{selectedClient.email}</span>
+                          </div>
+                          {selectedClient.phone && (
+                            <div className="flex items-center gap-1">
+                              <Phone className="h-4 w-4" />
+                              <span>{selectedClient.phone}</span>
+                            </div>
+                          )}
+                          <div className="flex items-center gap-1">
+                            <Calendar className="h-4 w-4" />
+                            <span>Client since {formatDate(selectedClient.joinDate)}</span>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="flex flex-wrap gap-2">
+                        {(() => {
+                          const bmi = calculateBMI(selectedClient.weight, selectedClient.height);
+                          const bmiCategory = bmi ? getBMICategory(bmi) : null;
+                          
+                          return bmi ? (
+                            <Badge 
+                              variant={
+                                bmiCategory === 'Normal weight' 
+                                  ? 'outline' 
+                                  : bmiCategory?.includes('Obesity') 
+                                    ? 'destructive' 
+                                    : 'secondary'
+                              }
+                              className="text-xs px-3 py-1"
+                            >
+                              BMI: {bmi} ({bmiCategory})
+                            </Badge>
+                          ) : null;
+                        })()}
+                        <Badge variant="outline" className="text-xs px-3 py-1">
+                          Age: {selectedClient.age}
+                        </Badge>
+                        <Badge variant="outline" className="text-xs px-3 py-1">
+                          <Activity className="h-3 w-3 mr-1" />
+                          {selectedClient.height} cm, {selectedClient.weight} kg
+                        </Badge>
+                      </div>
+                    </div>
+                    
+                    {selectedClient.goals && (
+                      <div className="mt-2 p-3 bg-blue-50 rounded-md text-sm">
+                        <span className="font-medium">Goals: </span>
+                        {selectedClient.goals}
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
 
