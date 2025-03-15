@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Message } from '@/types';
@@ -10,57 +10,96 @@ export function useMessages(clientId: string) {
   const [error, setError] = useState<Error | null>(null);
   const { user } = useAuth();
 
+  // Transform database message to our Message type
+  const transformMessage = useCallback((message: any): Message => ({
+    id: message.id,
+    clientId: message.client_id,
+    senderId: message.sender_id,
+    senderType: message.sender_type,
+    content: message.content,
+    timestamp: message.timestamp,
+    read: message.read
+  }), []);
+
+  // Fetch messages function that can be called multiple times
+  const fetchMessages = useCallback(async () => {
+    if (!user || !clientId) return;
+    
+    try {
+      setLoading(true);
+      
+      const { data, error } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('client_id', clientId)
+        .order('timestamp', { ascending: true });
+        
+      if (error) {
+        throw error;
+      }
+      
+      // Transform the data to match our Message type
+      const transformedMessages: Message[] = data.map(transformMessage);
+      
+      setMessages(transformedMessages);
+    } catch (err: any) {
+      setError(err);
+      console.error('Error fetching messages:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [user, clientId, transformMessage]);
+
   useEffect(() => {
     if (!user || !clientId) return;
     
-    const fetchMessages = async () => {
-      try {
-        setLoading(true);
-        
-        const { data, error } = await supabase
-          .from('messages')
-          .select('*')
-          .eq('client_id', clientId)
-          .order('timestamp', { ascending: true });
-          
-        if (error) {
-          throw error;
-        }
-        
-        // Transform the data to match our Message type
-        const transformedMessages: Message[] = data.map(message => ({
-          id: message.id,
-          clientId: message.client_id,
-          senderId: message.sender_id,
-          senderType: message.sender_type,
-          content: message.content,
-          timestamp: message.timestamp,
-          read: message.read
-        }));
-        
-        setMessages(transformedMessages);
-      } catch (err: any) {
-        setError(err);
-        console.error('Error fetching messages:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    
     fetchMessages();
     
-    // Set up real-time subscription for messages
+    // Set up real-time subscription for messages with specific handlers for each event type
     const subscription = supabase
-      .channel('messages-changes')
+      .channel(`messages-${clientId}`)
       .on('postgres_changes', 
         { 
-          event: '*', 
+          event: 'INSERT', 
           schema: 'public', 
           table: 'messages',
           filter: `client_id=eq.${clientId}`
         }, 
-        () => {
-          fetchMessages();
+        (payload) => {
+          // Immediately add the new message to the state
+          const newMessage = transformMessage(payload.new);
+          setMessages(prevMessages => [...prevMessages, newMessage]);
+        }
+      )
+      .on('postgres_changes', 
+        { 
+          event: 'UPDATE', 
+          schema: 'public', 
+          table: 'messages',
+          filter: `client_id=eq.${clientId}`
+        }, 
+        (payload) => {
+          // Update the specific message in the state
+          const updatedMessage = transformMessage(payload.new);
+          setMessages(prevMessages => 
+            prevMessages.map(msg => 
+              msg.id === updatedMessage.id ? updatedMessage : msg
+            )
+          );
+        }
+      )
+      .on('postgres_changes', 
+        { 
+          event: 'DELETE', 
+          schema: 'public', 
+          table: 'messages',
+          filter: `client_id=eq.${clientId}`
+        }, 
+        (payload) => {
+          // Remove the deleted message from the state
+          setMessages(prevMessages => 
+            prevMessages.filter(msg => msg.id !== payload.old.id)
+          );
         }
       )
       .subscribe();
@@ -68,7 +107,7 @@ export function useMessages(clientId: string) {
     return () => {
       subscription.unsubscribe();
     };
-  }, [user, clientId]);
+  }, [user, clientId, fetchMessages, transformMessage]);
   
   const sendMessage = async (content: string, senderType: 'trainer' | 'client') => {
     if (!user || !clientId) return null;
@@ -93,7 +132,11 @@ export function useMessages(clientId: string) {
         throw error;
       }
       
-      return data;
+      // Optimistically update the UI with the new message
+      const transformedMessage = transformMessage(data);
+      setMessages(prevMessages => [...prevMessages, transformedMessage]);
+      
+      return transformedMessage;
     } catch (err) {
       console.error('Error sending message:', err);
       throw err;
@@ -112,6 +155,13 @@ export function useMessages(clientId: string) {
       if (error) {
         throw error;
       }
+      
+      // Optimistically update the UI
+      setMessages(prevMessages => 
+        prevMessages.map(msg => 
+          msg.id === messageId ? { ...msg, read: true } : msg
+        )
+      );
       
       return true;
     } catch (err) {
@@ -134,6 +184,13 @@ export function useMessages(clientId: string) {
         throw error;
       }
       
+      // Optimistically update the UI
+      setMessages(prevMessages => 
+        prevMessages.map(msg => 
+          msg.senderType === 'client' ? { ...msg, read: true } : msg
+        )
+      );
+      
       return true;
     } catch (err) {
       console.error('Error marking all messages as read:', err);
@@ -147,6 +204,7 @@ export function useMessages(clientId: string) {
     error,
     sendMessage,
     markAsRead,
-    markAllAsRead
+    markAllAsRead,
+    refreshMessages: fetchMessages // Expose the refresh function
   };
 }
