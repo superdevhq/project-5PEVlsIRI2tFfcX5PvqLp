@@ -4,17 +4,23 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Trash2, Save, Utensils } from 'lucide-react';
+import { Plus, Trash2, Save, Utensils, Edit, Loader2 } from 'lucide-react';
 import { Client, Food, Meal, NutritionPlan } from '@/types';
-import { mockNutritionPlans } from '@/data/mockData';
+import { useNutritionPlans } from '@/hooks/useNutritionPlans';
+import { useToast } from '@/components/ui/use-toast';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 interface NutritionPlannerProps {
   client: Client;
 }
 
 const NutritionPlanner = ({ client }: NutritionPlannerProps) => {
-  const clientNutritionPlans = mockNutritionPlans.filter(plan => plan.clientId === client.id);
+  const { nutritionPlans, loading, addNutritionPlan, updateNutritionPlan, deleteNutritionPlan } = useNutritionPlans(client.id);
   const [isCreating, setIsCreating] = useState(false);
+  const [isEditing, setIsEditing] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  const { toast } = useToast();
   
   const [newPlan, setNewPlan] = useState<Partial<NutritionPlan>>({
     clientId: client.id,
@@ -56,7 +62,7 @@ const NutritionPlanner = ({ client }: NutritionPlannerProps) => {
         ...(currentMeal.foods || []),
         {
           ...currentFood,
-          id: Date.now().toString()
+          id: `temp-${Date.now()}`
         } as Food
       ]
     });
@@ -91,7 +97,7 @@ const NutritionPlanner = ({ client }: NutritionPlannerProps) => {
         ...(newPlan.meals || []),
         {
           ...currentMeal,
-          id: Date.now().toString()
+          id: `temp-${Date.now()}`
         } as Meal
       ]
     });
@@ -113,10 +119,79 @@ const NutritionPlanner = ({ client }: NutritionPlannerProps) => {
     });
   };
 
-  const handleSavePlan = () => {
-    // In a real app, this would save to the database
-    alert('Nutrition plan saved successfully!');
-    setIsCreating(false);
+  const handleSavePlan = async () => {
+    if (!newPlan.name || !newPlan.meals || newPlan.meals.length === 0) return;
+    
+    try {
+      setIsSaving(true);
+      
+      if (isEditing) {
+        await updateNutritionPlan(isEditing, newPlan as NutritionPlan);
+        toast({
+          title: "Nutrition plan updated",
+          description: `${newPlan.name} has been updated successfully.`,
+        });
+        setIsEditing(null);
+      } else {
+        await addNutritionPlan(newPlan as Omit<NutritionPlan, 'id'>);
+        toast({
+          title: "Nutrition plan created",
+          description: `${newPlan.name} has been created successfully.`,
+        });
+      }
+      
+      setIsCreating(false);
+      resetPlanForm();
+    } catch (error: any) {
+      toast({
+        title: isEditing ? "Error updating nutrition plan" : "Error creating nutrition plan",
+        description: error.message || "There was an error with the nutrition plan.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleEditPlan = (plan: NutritionPlan) => {
+    setNewPlan({
+      clientId: plan.clientId,
+      name: plan.name,
+      description: plan.description,
+      startDate: new Date(plan.startDate).toISOString().split('T')[0],
+      endDate: new Date(plan.endDate).toISOString().split('T')[0],
+      dailyCalories: plan.dailyCalories,
+      macros: {
+        protein: plan.macros.protein,
+        carbs: plan.macros.carbs,
+        fats: plan.macros.fats
+      },
+      meals: plan.meals
+    });
+    setIsEditing(plan.id);
+    setIsCreating(true);
+  };
+
+  const handleDeletePlan = async (id: string) => {
+    try {
+      setIsDeleting(id);
+      await deleteNutritionPlan(id);
+      toast({
+        title: "Nutrition plan deleted",
+        description: "The nutrition plan has been deleted successfully.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error deleting nutrition plan",
+        description: error.message || "There was an error deleting the nutrition plan.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(null);
+    }
+  };
+
+  const resetPlanForm = () => {
     setNewPlan({
       clientId: client.id,
       name: '',
@@ -150,12 +225,12 @@ const NutritionPlanner = ({ client }: NutritionPlannerProps) => {
         },
         meals: [
           {
-            id: '1',
+            id: `temp-1`,
             name: 'Breakfast',
             time: '08:00',
             foods: [
               {
-                id: '1',
+                id: `temp-1-1`,
                 name: 'Oatmeal',
                 quantity: 100,
                 unit: 'g',
@@ -165,7 +240,7 @@ const NutritionPlanner = ({ client }: NutritionPlannerProps) => {
                 fats: 5
               },
               {
-                id: '2',
+                id: `temp-1-2`,
                 name: 'Greek Yogurt',
                 quantity: 150,
                 unit: 'g',
@@ -177,12 +252,12 @@ const NutritionPlanner = ({ client }: NutritionPlannerProps) => {
             ]
           },
           {
-            id: '2',
+            id: `temp-2`,
             name: 'Lunch',
             time: '13:00',
             foods: [
               {
-                id: '1',
+                id: `temp-2-1`,
                 name: 'Grilled Chicken Breast',
                 quantity: 150,
                 unit: 'g',
@@ -192,7 +267,7 @@ const NutritionPlanner = ({ client }: NutritionPlannerProps) => {
                 fats: 6
               },
               {
-                id: '2',
+                id: `temp-2-2`,
                 name: 'Brown Rice',
                 quantity: 100,
                 unit: 'g',
@@ -202,7 +277,7 @@ const NutritionPlanner = ({ client }: NutritionPlannerProps) => {
                 fats: 1
               },
               {
-                id: '3',
+                id: `temp-2-3`,
                 name: 'Mixed Vegetables',
                 quantity: 150,
                 unit: 'g',
@@ -214,12 +289,12 @@ const NutritionPlanner = ({ client }: NutritionPlannerProps) => {
             ]
           },
           {
-            id: '3',
+            id: `temp-3`,
             name: 'Dinner',
             time: '19:00',
             foods: [
               {
-                id: '1',
+                id: `temp-3-1`,
                 name: 'Salmon Fillet',
                 quantity: 150,
                 unit: 'g',
@@ -229,7 +304,7 @@ const NutritionPlanner = ({ client }: NutritionPlannerProps) => {
                 fats: 15
               },
               {
-                id: '2',
+                id: `temp-3-2`,
                 name: 'Sweet Potato',
                 quantity: 150,
                 unit: 'g',
@@ -239,7 +314,7 @@ const NutritionPlanner = ({ client }: NutritionPlannerProps) => {
                 fats: 0
               },
               {
-                id: '3',
+                id: `temp-3-3`,
                 name: 'Asparagus',
                 quantity: 100,
                 unit: 'g',
@@ -266,6 +341,12 @@ const NutritionPlanner = ({ client }: NutritionPlannerProps) => {
     }, { calories: 0, protein: 0, carbs: 0, fats: 0 });
   };
 
+  const cancelEdit = () => {
+    setIsCreating(false);
+    setIsEditing(null);
+    resetPlanForm();
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -282,7 +363,10 @@ const NutritionPlanner = ({ client }: NutritionPlannerProps) => {
             </Button>
             <Button 
               className="flex items-center gap-2"
-              onClick={() => setIsCreating(true)}
+              onClick={() => {
+                resetPlanForm();
+                setIsCreating(true);
+              }}
             >
               <Plus className="h-4 w-4" />
               <span>Create Plan</span>
@@ -294,8 +378,10 @@ const NutritionPlanner = ({ client }: NutritionPlannerProps) => {
       {isCreating ? (
         <Card>
           <CardHeader>
-            <CardTitle>Create New Nutrition Plan</CardTitle>
-            <CardDescription>Design a custom nutrition plan for {client.name}</CardDescription>
+            <CardTitle>{isEditing ? 'Edit Nutrition Plan' : 'Create New Nutrition Plan'}</CardTitle>
+            <CardDescription>
+              {isEditing ? `Update nutrition plan for ${client.name}` : `Design a custom nutrition plan for ${client.name}`}
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -600,70 +686,134 @@ const NutritionPlanner = ({ client }: NutritionPlannerProps) => {
             </div>
           </CardContent>
           <CardFooter className="flex justify-between">
-            <Button variant="outline" onClick={() => setIsCreating(false)}>Cancel</Button>
+            <Button variant="outline" onClick={cancelEdit}>Cancel</Button>
             <Button 
               onClick={handleSavePlan}
-              disabled={!newPlan.name || !(newPlan.meals && newPlan.meals.length > 0)}
+              disabled={!newPlan.name || !(newPlan.meals && newPlan.meals.length > 0) || isSaving}
               className="flex items-center gap-2"
             >
-              <Save className="h-4 w-4" />
-              <span>Save Nutrition Plan</span>
+              {isSaving ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Saving...</span>
+                </>
+              ) : (
+                <>
+                  <Save className="h-4 w-4" />
+                  <span>{isEditing ? 'Update' : 'Save'} Nutrition Plan</span>
+                </>
+              )}
             </Button>
           </CardFooter>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {clientNutritionPlans.length > 0 ? (
-            clientNutritionPlans.map(plan => (
-              <Card key={plan.id}>
-                <CardHeader>
-                  <CardTitle>{plan.name}</CardTitle>
-                  <CardDescription>
-                    {new Date(plan.startDate).toLocaleDateString()} - {new Date(plan.endDate).toLocaleDateString()}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p className="mb-2 text-sm text-gray-600">{plan.description}</p>
-                  
-                  <div className="flex justify-between items-center p-2 bg-gray-50 rounded-md mb-4">
-                    <div className="text-sm">
-                      <span className="font-medium">{plan.dailyCalories} kcal</span> daily
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      P: {plan.macros.protein}g • C: {plan.macros.carbs}g • F: {plan.macros.fats}g
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-3">
-                    <h4 className="font-medium text-sm">Meals:</h4>
-                    {plan.meals.map(meal => (
-                      <div key={meal.id} className="text-sm p-2 border-l-2 border-green-500 pl-3">
-                        <p className="font-medium">{meal.name} ({meal.time})</p>
-                        <ul className="mt-1 space-y-1">
-                          {meal.foods.map(food => (
-                            <li key={food.id} className="text-xs flex justify-between">
-                              <span>{food.quantity} {food.unit} {food.name}</span>
-                              <span className="text-gray-500">{food.calories} kcal</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-                <CardFooter>
-                  <Button variant="outline" size="sm" className="w-full">Edit Plan</Button>
-                </CardFooter>
-              </Card>
-            ))
+        <>
+          {loading ? (
+            <div className="flex justify-center items-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <span className="ml-2">Loading nutrition plans...</span>
+            </div>
           ) : (
-            <div className="col-span-2 text-center p-12 border border-dashed rounded-md">
-              <h3 className="text-lg font-medium mb-2">No Nutrition Plans Yet</h3>
-              <p className="text-gray-500 mb-4">Create your first nutrition plan for {client.name}</p>
-              <Button onClick={() => setIsCreating(true)}>Create Nutrition Plan</Button>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {nutritionPlans.length > 0 ? (
+                nutritionPlans.map(plan => (
+                  <Card key={plan.id}>
+                    <CardHeader>
+                      <CardTitle>{plan.name}</CardTitle>
+                      <CardDescription>
+                        {new Date(plan.startDate).toLocaleDateString()} - {new Date(plan.endDate).toLocaleDateString()}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="mb-2 text-sm text-gray-600">{plan.description}</p>
+                      
+                      <div className="flex justify-between items-center p-2 bg-gray-50 rounded-md mb-4">
+                        <div className="text-sm">
+                          <span className="font-medium">{plan.dailyCalories} kcal</span> daily
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          P: {plan.macros.protein}g • C: {plan.macros.carbs}g • F: {plan.macros.fats}g
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-3">
+                        <h4 className="font-medium text-sm">Meals:</h4>
+                        {plan.meals.map(meal => (
+                          <div key={meal.id} className="text-sm p-2 border-l-2 border-green-500 pl-3">
+                            <p className="font-medium">{meal.name} ({meal.time})</p>
+                            <ul className="mt-1 space-y-1">
+                              {meal.foods.map(food => (
+                                <li key={food.id} className="text-xs flex justify-between">
+                                  <span>{food.quantity} {food.unit} {food.name}</span>
+                                  <span className="text-gray-500">{food.calories} kcal</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                    <CardFooter className="flex justify-between">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => handleEditPlan(plan)}
+                        className="flex items-center gap-1"
+                      >
+                        <Edit className="h-3 w-3" />
+                        <span>Edit</span>
+                      </Button>
+                      
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            className="flex items-center gap-1 text-red-500 hover:text-red-600 hover:bg-red-50"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                            <span>Delete</span>
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>Delete Nutrition Plan</DialogTitle>
+                            <DialogDescription>
+                              Are you sure you want to delete "{plan.name}"? This action cannot be undone.
+                            </DialogDescription>
+                          </DialogHeader>
+                          <DialogFooter>
+                            <Button variant="outline">Cancel</Button>
+                            <Button 
+                              variant="destructive"
+                              onClick={() => handleDeletePlan(plan.id)}
+                              disabled={isDeleting === plan.id}
+                            >
+                              {isDeleting === plan.id ? (
+                                <>
+                                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                  Deleting...
+                                </>
+                              ) : (
+                                'Delete'
+                              )}
+                            </Button>
+                          </DialogFooter>
+                        </DialogContent>
+                      </Dialog>
+                    </CardFooter>
+                  </Card>
+                ))
+              ) : (
+                <div className="col-span-2 text-center p-12 border border-dashed rounded-md">
+                  <h3 className="text-lg font-medium mb-2">No Nutrition Plans Yet</h3>
+                  <p className="text-gray-500 mb-4">Create your first nutrition plan for {client.name}</p>
+                  <Button onClick={() => setIsCreating(true)}>Create Nutrition Plan</Button>
+                </div>
+              )}
             </div>
           )}
-        </div>
+        </>
       )}
     </div>
   );
