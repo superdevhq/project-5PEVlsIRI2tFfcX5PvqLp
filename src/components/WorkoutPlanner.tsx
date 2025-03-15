@@ -4,17 +4,23 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Trash2, Save, Dumbbell } from 'lucide-react';
+import { Plus, Trash2, Save, Dumbbell, Edit, Loader2 } from 'lucide-react';
 import { Client, Exercise, WorkoutPlan } from '@/types';
-import { mockWorkoutPlans } from '@/data/mockData';
+import { useWorkoutPlans } from '@/hooks/useWorkoutPlans';
+import { useToast } from '@/components/ui/use-toast';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 interface WorkoutPlannerProps {
   client: Client;
 }
 
 const WorkoutPlanner = ({ client }: WorkoutPlannerProps) => {
-  const clientWorkouts = mockWorkoutPlans.filter(plan => plan.clientId === client.id);
+  const { workoutPlans, loading, addWorkoutPlan, updateWorkoutPlan, deleteWorkoutPlan } = useWorkoutPlans(client.id);
   const [isCreating, setIsCreating] = useState(false);
+  const [isEditing, setIsEditing] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  const { toast } = useToast();
   
   const [newWorkout, setNewWorkout] = useState<Partial<WorkoutPlan>>({
     clientId: client.id,
@@ -43,7 +49,7 @@ const WorkoutPlanner = ({ client }: WorkoutPlannerProps) => {
         ...(newWorkout.exercises || []),
         {
           ...newExercise,
-          id: Date.now().toString()
+          id: `temp-${Date.now()}`
         } as Exercise
       ]
     });
@@ -68,10 +74,73 @@ const WorkoutPlanner = ({ client }: WorkoutPlannerProps) => {
     });
   };
 
-  const handleSaveWorkout = () => {
-    // In a real app, this would save to the database
-    alert('Workout plan saved successfully!');
-    setIsCreating(false);
+  const handleSaveWorkout = async () => {
+    if (!newWorkout.name || !newWorkout.exercises || newWorkout.exercises.length === 0) return;
+    
+    try {
+      setIsSaving(true);
+      
+      if (isEditing) {
+        await updateWorkoutPlan(isEditing, newWorkout as WorkoutPlan);
+        toast({
+          title: "Workout plan updated",
+          description: `${newWorkout.name} has been updated successfully.`,
+        });
+        setIsEditing(null);
+      } else {
+        await addWorkoutPlan(newWorkout as Omit<WorkoutPlan, 'id'>);
+        toast({
+          title: "Workout plan created",
+          description: `${newWorkout.name} has been created successfully.`,
+        });
+      }
+      
+      setIsCreating(false);
+      resetWorkoutForm();
+    } catch (error: any) {
+      toast({
+        title: isEditing ? "Error updating workout plan" : "Error creating workout plan",
+        description: error.message || "There was an error with the workout plan.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleEditWorkout = (workout: WorkoutPlan) => {
+    setNewWorkout({
+      clientId: workout.clientId,
+      name: workout.name,
+      description: workout.description,
+      startDate: new Date(workout.startDate).toISOString().split('T')[0],
+      endDate: new Date(workout.endDate).toISOString().split('T')[0],
+      exercises: workout.exercises
+    });
+    setIsEditing(workout.id);
+    setIsCreating(true);
+  };
+
+  const handleDeleteWorkout = async (id: string) => {
+    try {
+      setIsDeleting(id);
+      await deleteWorkoutPlan(id);
+      toast({
+        title: "Workout plan deleted",
+        description: "The workout plan has been deleted successfully.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error deleting workout plan",
+        description: error.message || "There was an error deleting the workout plan.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(null);
+    }
+  };
+
+  const resetWorkoutForm = () => {
     setNewWorkout({
       clientId: client.id,
       name: '',
@@ -93,7 +162,7 @@ const WorkoutPlanner = ({ client }: WorkoutPlannerProps) => {
         endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
         exercises: [
           {
-            id: '1',
+            id: `temp-1`,
             name: 'Barbell Squat',
             sets: 4,
             reps: 8,
@@ -102,7 +171,7 @@ const WorkoutPlanner = ({ client }: WorkoutPlannerProps) => {
             notes: 'Focus on form and depth'
           },
           {
-            id: '2',
+            id: `temp-2`,
             name: 'Bench Press',
             sets: 3,
             reps: 10,
@@ -111,7 +180,7 @@ const WorkoutPlanner = ({ client }: WorkoutPlannerProps) => {
             notes: 'Keep elbows tucked'
           },
           {
-            id: '3',
+            id: `temp-3`,
             name: 'Deadlift',
             sets: 3,
             reps: 6,
@@ -120,7 +189,7 @@ const WorkoutPlanner = ({ client }: WorkoutPlannerProps) => {
             notes: 'Maintain neutral spine'
           },
           {
-            id: '4',
+            id: `temp-4`,
             name: 'Pull-ups',
             sets: 3,
             reps: 8,
@@ -130,6 +199,12 @@ const WorkoutPlanner = ({ client }: WorkoutPlannerProps) => {
         ]
       });
     }, 1500);
+  };
+
+  const cancelEdit = () => {
+    setIsCreating(false);
+    setIsEditing(null);
+    resetWorkoutForm();
   };
 
   return (
@@ -148,7 +223,10 @@ const WorkoutPlanner = ({ client }: WorkoutPlannerProps) => {
             </Button>
             <Button 
               className="flex items-center gap-2"
-              onClick={() => setIsCreating(true)}
+              onClick={() => {
+                resetWorkoutForm();
+                setIsCreating(true);
+              }}
             >
               <Plus className="h-4 w-4" />
               <span>Create Plan</span>
@@ -160,8 +238,10 @@ const WorkoutPlanner = ({ client }: WorkoutPlannerProps) => {
       {isCreating ? (
         <Card>
           <CardHeader>
-            <CardTitle>Create New Workout Plan</CardTitle>
-            <CardDescription>Design a custom workout plan for {client.name}</CardDescription>
+            <CardTitle>{isEditing ? 'Edit Workout Plan' : 'Create New Workout Plan'}</CardTitle>
+            <CardDescription>
+              {isEditing ? `Update workout plan for ${client.name}` : `Design a custom workout plan for ${client.name}`}
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -329,61 +409,125 @@ const WorkoutPlanner = ({ client }: WorkoutPlannerProps) => {
             </div>
           </CardContent>
           <CardFooter className="flex justify-between">
-            <Button variant="outline" onClick={() => setIsCreating(false)}>Cancel</Button>
+            <Button variant="outline" onClick={cancelEdit}>Cancel</Button>
             <Button 
               onClick={handleSaveWorkout}
-              disabled={!newWorkout.name || !(newWorkout.exercises && newWorkout.exercises.length > 0)}
+              disabled={!newWorkout.name || !(newWorkout.exercises && newWorkout.exercises.length > 0) || isSaving}
               className="flex items-center gap-2"
             >
-              <Save className="h-4 w-4" />
-              <span>Save Workout Plan</span>
+              {isSaving ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Saving...</span>
+                </>
+              ) : (
+                <>
+                  <Save className="h-4 w-4" />
+                  <span>{isEditing ? 'Update' : 'Save'} Workout Plan</span>
+                </>
+              )}
             </Button>
           </CardFooter>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {clientWorkouts.length > 0 ? (
-            clientWorkouts.map(workout => (
-              <Card key={workout.id}>
-                <CardHeader>
-                  <CardTitle>{workout.name}</CardTitle>
-                  <CardDescription>
-                    {new Date(workout.startDate).toLocaleDateString()} - {new Date(workout.endDate).toLocaleDateString()}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p className="mb-4 text-sm text-gray-600">{workout.description}</p>
-                  <div className="space-y-2">
-                    <h4 className="font-medium text-sm">Exercises:</h4>
-                    <ul className="space-y-2">
-                      {workout.exercises.map(exercise => (
-                        <li key={exercise.id} className="text-sm p-2 bg-gray-50 rounded">
-                          <span className="font-medium">{exercise.name}</span>
-                          <p className="text-xs text-gray-500">
-                            {exercise.sets} sets × {exercise.reps} reps
-                            {exercise.weight ? ` @ ${exercise.weight}kg` : ''}
-                            {exercise.duration ? ` for ${exercise.duration} min` : ''}
-                            {` • ${exercise.restTime}s rest`}
-                          </p>
-                          {exercise.notes && <p className="text-xs italic mt-1">{exercise.notes}</p>}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </CardContent>
-                <CardFooter>
-                  <Button variant="outline" size="sm" className="w-full">Edit Plan</Button>
-                </CardFooter>
-              </Card>
-            ))
+        <>
+          {loading ? (
+            <div className="flex justify-center items-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <span className="ml-2">Loading workout plans...</span>
+            </div>
           ) : (
-            <div className="col-span-2 text-center p-12 border border-dashed rounded-md">
-              <h3 className="text-lg font-medium mb-2">No Workout Plans Yet</h3>
-              <p className="text-gray-500 mb-4">Create your first workout plan for {client.name}</p>
-              <Button onClick={() => setIsCreating(true)}>Create Workout Plan</Button>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {workoutPlans.length > 0 ? (
+                workoutPlans.map(workout => (
+                  <Card key={workout.id}>
+                    <CardHeader>
+                      <CardTitle>{workout.name}</CardTitle>
+                      <CardDescription>
+                        {new Date(workout.startDate).toLocaleDateString()} - {new Date(workout.endDate).toLocaleDateString()}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="mb-4 text-sm text-gray-600">{workout.description}</p>
+                      <div className="space-y-2">
+                        <h4 className="font-medium text-sm">Exercises:</h4>
+                        <ul className="space-y-2">
+                          {workout.exercises.map(exercise => (
+                            <li key={exercise.id} className="text-sm p-2 bg-gray-50 rounded">
+                              <span className="font-medium">{exercise.name}</span>
+                              <p className="text-xs text-gray-500">
+                                {exercise.sets} sets × {exercise.reps} reps
+                                {exercise.weight ? ` @ ${exercise.weight}kg` : ''}
+                                {exercise.duration ? ` for ${exercise.duration} min` : ''}
+                                {` • ${exercise.restTime}s rest`}
+                              </p>
+                              {exercise.notes && <p className="text-xs italic mt-1">{exercise.notes}</p>}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </CardContent>
+                    <CardFooter className="flex justify-between">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => handleEditWorkout(workout)}
+                        className="flex items-center gap-1"
+                      >
+                        <Edit className="h-3 w-3" />
+                        <span>Edit</span>
+                      </Button>
+                      
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            className="flex items-center gap-1 text-red-500 hover:text-red-600 hover:bg-red-50"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                            <span>Delete</span>
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>Delete Workout Plan</DialogTitle>
+                            <DialogDescription>
+                              Are you sure you want to delete "{workout.name}"? This action cannot be undone.
+                            </DialogDescription>
+                          </DialogHeader>
+                          <DialogFooter>
+                            <Button variant="outline">Cancel</Button>
+                            <Button 
+                              variant="destructive"
+                              onClick={() => handleDeleteWorkout(workout.id)}
+                              disabled={isDeleting === workout.id}
+                            >
+                              {isDeleting === workout.id ? (
+                                <>
+                                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                  Deleting...
+                                </>
+                              ) : (
+                                'Delete'
+                              )}
+                            </Button>
+                          </DialogFooter>
+                        </DialogContent>
+                      </Dialog>
+                    </CardFooter>
+                  </Card>
+                ))
+              ) : (
+                <div className="col-span-2 text-center p-12 border border-dashed rounded-md">
+                  <h3 className="text-lg font-medium mb-2">No Workout Plans Yet</h3>
+                  <p className="text-gray-500 mb-4">Create your first workout plan for {client.name}</p>
+                  <Button onClick={() => setIsCreating(true)}>Create Workout Plan</Button>
+                </div>
+              )}
             </div>
           )}
-        </div>
+        </>
       )}
     </div>
   );
