@@ -67,10 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       setLoading(true);
       
-      // First check user metadata for user_type
-      const metadataUserType = user.user_metadata?.user_type as 'trainer' | 'client' | undefined;
-      
-      // Check database records
+      // First check if user is a client
       const { data: clientData, error: clientError } = await supabase
         .from('clients')
         .select('*')
@@ -81,6 +78,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.error('Error checking client data:', clientError);
       }
 
+      if (clientData) {
+        console.log('User is a client based on database');
+        setClient(clientData);
+        setTrainer(null);
+        setUserType('client');
+        setLoading(false);
+        return;
+      }
+
+      // If not a client, check if user is a trainer
       const { data: trainerData, error: trainerError } = await supabase
         .from('trainers')
         .select('*')
@@ -91,52 +98,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.error('Error checking trainer data:', trainerError);
       }
 
-      // Detect inconsistencies
-      const isClient = !!clientData;
-      const isTrainer = !!trainerData;
-      
-      if (isClient && isTrainer) {
-        console.warn('User exists in both clients and trainers tables. This should be fixed.');
-        // We'll prioritize the metadata value if it exists
-        if (metadataUserType) {
-          console.log(`Using metadata user type: ${metadataUserType}`);
-          if (metadataUserType === 'client') {
-            setClient(clientData);
-            setTrainer(null);
-            setUserType('client');
-          } else {
-            setTrainer(trainerData);
-            setClient(null);
-            setUserType('trainer');
-          }
-        } else {
-          // Default to client if no metadata
-          console.log('Defaulting to client type due to inconsistency');
-          setClient(clientData);
-          setTrainer(null);
-          setUserType('client');
-          // Update metadata
-          await updateUserTypeMetadata(user.id, 'client');
-        }
-      } else if (isClient) {
-        console.log('User is a client based on database');
-        setClient(clientData);
-        setTrainer(null);
-        setUserType('client');
-        // Update metadata if it doesn't match
-        if (metadataUserType !== 'client') {
-          await updateUserTypeMetadata(user.id, 'client');
-        }
-      } else if (isTrainer) {
+      if (trainerData) {
         console.log('User is a trainer based on database');
         setTrainer(trainerData);
         setClient(null);
         setUserType('trainer');
-        // Update metadata if it doesn't match
-        if (metadataUserType !== 'trainer') {
-          await updateUserTypeMetadata(user.id, 'trainer');
-        }
       } else {
+        // User is neither a trainer nor a client
         console.warn('User not found in either clients or trainers table');
         setTrainer(null);
         setClient(null);
@@ -146,23 +114,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error('Error determining user type:', error);
     } finally {
       setLoading(false);
-    }
-  };
-
-  // Function to update user metadata with correct user type
-  const updateUserTypeMetadata = async (userId: string, userType: 'trainer' | 'client') => {
-    try {
-      const { data, error } = await supabase.functions.invoke('update-user-type', {
-        body: { userId, userType }
-      });
-      
-      if (error) {
-        console.error('Error updating user type metadata:', error);
-      } else {
-        console.log('User type metadata updated:', data);
-      }
-    } catch (error) {
-      console.error('Error invoking update-user-type function:', error);
     }
   };
 
