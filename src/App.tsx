@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useNavigate, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import Layout from "@/components/layout/Layout";
 import Dashboard from "./pages/Dashboard";
 import ClientDashboard from "./pages/ClientDashboard";
 import Login from "./pages/Login";
@@ -58,7 +59,11 @@ const LoginRoute = () => {
     );
   }
   
-  return <Login />;
+  return (
+    <Layout footerVariant="minimal">
+      <Login />
+    </Layout>
+  );
 };
 
 // AppRoutes component to handle conditional routing based on user type
@@ -80,14 +85,20 @@ const AppRoutes = () => {
     <Routes>
       {/* Public Routes */}
       <Route path="/login" element={<LoginRoute />} />
-      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/forgot-password" element={
+        <Layout footerVariant="minimal">
+          <ForgotPassword />
+        </Layout>
+      } />
       
       {/* Protected Routes */}
       <Route 
         path="/dashboard" 
         element={
           <ProtectedRoute allowedUserTypes={['trainer']}>
-            <Dashboard />
+            <Layout showFooter={false}>
+              <Dashboard />
+            </Layout>
           </ProtectedRoute>
         } 
       />
@@ -96,7 +107,9 @@ const AppRoutes = () => {
         path="/client-dashboard" 
         element={
           <ProtectedRoute allowedUserTypes={['client']}>
-            <ClientDashboard />
+            <Layout showFooter={false}>
+              <ClientDashboard />
+            </Layout>
           </ProtectedRoute>
         } 
       />
@@ -105,7 +118,11 @@ const AppRoutes = () => {
       <Route path="/" element={<RootRedirect />} />
       
       {/* Catch-all Route */}
-      <Route path="*" element={<NotFound />} />
+      <Route path="*" element={
+        <Layout footerVariant="app">
+          <NotFound />
+        </Layout>
+      } />
     </Routes>
   );
 };
