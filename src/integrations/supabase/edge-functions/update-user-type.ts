@@ -3,7 +3,6 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4'
 
 // Define the request body type
 interface RequestBody {
-  userId: string
   userType: 'trainer' | 'client'
 }
 
@@ -51,20 +50,16 @@ Deno.serve(async (req) => {
     }
 
     // Parse the request body
-    const { userId, userType } = await req.json() as RequestBody
-
-    // Only allow users to update their own metadata
-    if (user.id !== userId) {
-      throw new Error('Unauthorized: You can only update your own user type')
-    }
+    const { userType } = await req.json() as RequestBody
 
     // Update the user metadata
-    const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
-      userId,
+    const { data: updateData, error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
+      user.id,
       {
         user_metadata: {
-          user_type: userType
-        }
+          ...user.user_metadata,
+          user_type: userType,
+        },
       }
     )
 
@@ -76,7 +71,7 @@ Deno.serve(async (req) => {
       JSON.stringify({
         success: true,
         message: 'User type updated successfully',
-        userType
+        userType,
       }),
       {
         status: 200,

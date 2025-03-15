@@ -16,6 +16,7 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   fixUserData: () => Promise<void>;
+  updateUserTypeMetadata: (userType: 'trainer' | 'client') => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -83,6 +84,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setClient(clientData);
         setTrainer(null);
         setUserType('client');
+        
+        // Update user metadata to match database
+        await updateUserTypeMetadata('client');
+        
         setLoading(false);
         return;
       }
@@ -103,6 +108,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setTrainer(trainerData);
         setClient(null);
         setUserType('trainer');
+        
+        // Update user metadata to match database
+        await updateUserTypeMetadata('trainer');
       } else {
         // User is neither a trainer nor a client
         console.warn('User not found in either clients or trainers table');
@@ -114,6 +122,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error('Error determining user type:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Function to update user type in metadata
+  const updateUserTypeMetadata = async (userType: 'trainer' | 'client') => {
+    if (!user) return;
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('update-user-type', {
+        body: { userType }
+      });
+      
+      if (error) {
+        console.error('Error updating user type metadata:', error);
+        return;
+      }
+      
+      console.log('User type metadata updated:', data);
+    } catch (error) {
+      console.error('Error updating user type metadata:', error);
     }
   };
 
@@ -283,6 +311,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signOut,
     resetPassword,
     fixUserData,
+    updateUserTypeMetadata,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

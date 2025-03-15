@@ -66,6 +66,28 @@ Deno.serve(async (req) => {
       throw new Error('Unauthorized: You can only create clients for yourself')
     }
 
+    // Check if the trainer exists in the trainers table
+    const { data: trainerData, error: trainerError } = await supabaseAdmin
+      .from('trainers')
+      .select('id')
+      .eq('id', trainerId)
+      .single()
+
+    if (trainerError || !trainerData) {
+      // If trainer doesn't exist, create the trainer record
+      const { error: createTrainerError } = await supabaseAdmin
+        .from('trainers')
+        .insert({
+          id: trainerId,
+          full_name: user.user_metadata?.full_name || 'Trainer',
+          email: user.email,
+        })
+
+      if (createTrainerError) {
+        throw new Error(`Failed to create trainer record: ${createTrainerError.message}`)
+      }
+    }
+
     // 1. Create the auth user
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
