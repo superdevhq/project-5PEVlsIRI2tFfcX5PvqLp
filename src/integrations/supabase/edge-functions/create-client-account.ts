@@ -98,14 +98,14 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 1. Create the auth user
+    // 1. Create the auth user with client user_type
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
       email_confirm: true, // Auto-confirm the email
       user_metadata: {
         full_name: fullName,
-        user_type: 'client',
+        user_type: 'client', // Explicitly set as client
       },
     })
 
@@ -113,11 +113,14 @@ Deno.serve(async (req) => {
       throw new Error(authError?.message || 'Failed to create user account')
     }
 
+    const clientId = authData.user.id;
+    console.log('Created auth user with ID:', clientId);
+
     // 2. Create the client record
     const { data: newClientData, error: clientError } = await supabaseAdmin
       .from('clients')
       .insert({
-        id: authData.user.id,
+        id: clientId,
         name: fullName,
         email: email,
         age: clientData.age,
@@ -133,9 +136,11 @@ Deno.serve(async (req) => {
 
     if (clientError) {
       // If client creation fails, try to clean up the auth user
-      await supabaseAdmin.auth.admin.deleteUser(authData.user.id)
-      throw new Error(clientError.message || 'Failed to create client record')
+      await supabaseAdmin.auth.admin.deleteUser(clientId)
+      throw new Error(`Failed to create client record: ${clientError.message}`)
     }
+
+    console.log('Created client record successfully');
 
     return new Response(
       JSON.stringify({
