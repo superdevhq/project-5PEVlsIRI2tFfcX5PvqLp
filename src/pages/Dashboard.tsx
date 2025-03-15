@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -65,7 +64,7 @@ const Dashboard = () => {
         ) : (
           <div className="flex flex-col items-center justify-center h-[calc(100vh-12rem)]">
             <div className="text-center max-w-md">
-              <h2 className="text-2xl font-bold mb-2">Welcome to FitPro AI</h2>
+              <h2 className="text-2xl font-bold mb-2">Welcome to FitPro 1.5 AI</h2>
               {clientsLoading ? (
                 <div className="flex justify-center py-4">
                   <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
