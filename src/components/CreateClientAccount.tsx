@@ -52,40 +52,24 @@ export default function CreateClientAccount({ onClientCreated }: CreateClientAcc
     try {
       setIsLoading(true);
 
-      // 1. Create auth user account
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.password,
-        options: {
-          data: {
-            full_name: formData.name,
-            user_type: 'client',
-          },
-        },
+      // 1. Create auth user account using admin functions to avoid session change
+      const { data: adminAuthResponse, error: adminAuthError } = await supabase.functions.invoke('create-client-account', {
+        body: {
+          email: formData.email,
+          password: formData.password,
+          fullName: formData.name,
+          trainerId: user?.id,
+          clientData: {
+            age: formData.age,
+            height: formData.height,
+            weight: formData.weight,
+            goals: formData.goals,
+          }
+        }
       });
 
-      if (authError) throw authError;
-      if (!authData.user) throw new Error("Failed to create user account");
-
-      // 2. Create client record in the clients table
-      const { data: clientData, error: clientError } = await supabase
-        .from('clients')
-        .insert({
-          id: authData.user.id,
-          name: formData.name,
-          email: formData.email,
-          age: formData.age,
-          height: formData.height,
-          weight: formData.weight,
-          goals: formData.goals,
-          trainer_id: user?.id,
-          join_date: new Date().toISOString(),
-          profile_image: `https://ui-avatars.com/api/?name=${encodeURIComponent(formData.name)}&background=random`,
-        })
-        .select()
-        .single();
-
-      if (clientError) throw clientError;
+      if (adminAuthError) throw adminAuthError;
+      if (!adminAuthResponse?.success) throw new Error(adminAuthResponse?.message || "Failed to create client account");
 
       toast({
         title: "Client account created",
@@ -106,8 +90,8 @@ export default function CreateClientAccount({ onClientCreated }: CreateClientAcc
       setIsOpen(false);
       
       // Notify parent component
-      if (onClientCreated && clientData) {
-        onClientCreated(clientData.id);
+      if (onClientCreated && adminAuthResponse.clientId) {
+        onClientCreated(adminAuthResponse.clientId);
       }
     } catch (error: any) {
       console.error('Error creating client account:', error);
