@@ -1,6 +1,6 @@
 
-import { ReactNode } from 'react';
-import { Navigate } from 'react-router-dom';
+import { ReactNode, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Loader2 } from 'lucide-react';
 
@@ -14,6 +14,24 @@ const ProtectedRoute = ({
   allowedUserTypes = ['trainer', 'client'] 
 }: ProtectedRouteProps) => {
   const { user, userType, loading } = useAuth();
+  const navigate = useNavigate();
+  
+  useEffect(() => {
+    // Only run this effect when loading is complete
+    if (!loading) {
+      // Redirect to login if not authenticated
+      if (!user) {
+        navigate('/login', { replace: true });
+        return;
+      }
+      
+      // If user type doesn't match allowed types, redirect to appropriate dashboard
+      if (userType && !allowedUserTypes.includes(userType)) {
+        const redirectPath = userType === 'trainer' ? '/dashboard' : '/client-dashboard';
+        navigate(redirectPath, { replace: true });
+      }
+    }
+  }, [user, userType, loading, allowedUserTypes, navigate]);
 
   // Show loading state
   if (loading) {
@@ -24,23 +42,15 @@ const ProtectedRoute = ({
       </div>
     );
   }
-
-  // Redirect to login if not authenticated
-  if (!user) {
-    return <Navigate to="/login" replace />;
-  }
-
-  // Simple check for allowed user types
-  if (!userType || !allowedUserTypes.includes(userType)) {
-    // Redirect to the appropriate dashboard based on user type
-    if (userType === 'trainer') {
-      return <Navigate to="/dashboard" replace />;
-    } else if (userType === 'client') {
-      return <Navigate to="/client-dashboard" replace />;
-    } else {
-      // If user type is unknown, redirect to login
-      return <Navigate to="/login" replace />;
-    }
+  
+  // Don't render children until we're sure we shouldn't redirect
+  if (!user || (userType && !allowedUserTypes.includes(userType))) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <span className="ml-2">Redirecting...</span>
+      </div>
+    );
   }
 
   // If all checks pass, render the children
