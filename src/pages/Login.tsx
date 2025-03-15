@@ -8,13 +8,14 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2 } from "lucide-react";
+import { FixUserData } from "@/components/FixUserData";
 
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'trainer' | 'client'>('trainer');
-  const { signIn } = useAuth();
+  const { signIn, user } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -27,7 +28,7 @@ export default function Login() {
     try {
       setIsLoading(true);
       await signIn(email, password, activeTab);
-      navigate(activeTab === 'trainer' ? '/dashboard' : '/client-dashboard');
+      // Navigation will be handled by the auth state change in App.tsx
     } catch (error) {
       console.error("Login error:", error);
     } finally {
@@ -141,6 +142,9 @@ export default function Login() {
                 </form>
               </TabsContent>
             </Tabs>
+            
+            {/* Add the Fix User Data component for users who are already logged in */}
+            {user && <FixUserData />}
           </CardContent>
           <CardFooter className="flex flex-col space-y-4">
             <div className="text-sm text-center text-gray-500">
