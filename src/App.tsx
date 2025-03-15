@@ -6,7 +6,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useNavigate, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
-import Layout from "@/components/layout/Layout";
 import Dashboard from "./pages/Dashboard";
 import ClientDashboard from "./pages/ClientDashboard";
 import Login from "./pages/Login";
@@ -59,11 +58,7 @@ const LoginRoute = () => {
     );
   }
   
-  return (
-    <Layout footerVariant="minimal">
-      <Login />
-    </Layout>
-  );
+  return <Login />;
 };
 
 // AppRoutes component to handle conditional routing based on user type
@@ -85,20 +80,14 @@ const AppRoutes = () => {
     <Routes>
       {/* Public Routes */}
       <Route path="/login" element={<LoginRoute />} />
-      <Route path="/forgot-password" element={
-        <Layout footerVariant="minimal">
-          <ForgotPassword />
-        </Layout>
-      } />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
       
       {/* Protected Routes */}
       <Route 
         path="/dashboard" 
         element={
           <ProtectedRoute allowedUserTypes={['trainer']}>
-            <Layout showFooter={false}>
-              <Dashboard />
-            </Layout>
+            <Dashboard />
           </ProtectedRoute>
         } 
       />
@@ -107,9 +96,7 @@ const AppRoutes = () => {
         path="/client-dashboard" 
         element={
           <ProtectedRoute allowedUserTypes={['client']}>
-            <Layout showFooter={false}>
-              <ClientDashboard />
-            </Layout>
+            <ClientDashboard />
           </ProtectedRoute>
         } 
       />
@@ -118,11 +105,7 @@ const AppRoutes = () => {
       <Route path="/" element={<RootRedirect />} />
       
       {/* Catch-all Route */}
-      <Route path="*" element={
-        <Layout footerVariant="app">
-          <NotFound />
-        </Layout>
-      } />
+      <Route path="*" element={<NotFound />} />
     </Routes>
   );
 };
