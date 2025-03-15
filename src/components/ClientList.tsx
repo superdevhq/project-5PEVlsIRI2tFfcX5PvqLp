@@ -1,4 +1,4 @@
-```javascript
+
 import { useState } from 'react';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -101,7 +101,7 @@ const ClientList = ({ onClientSelect }: ClientListProps) => {
       
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-medium text-gray-500">Clients 1.0</h3>
+          <h3 className="text-sm font-medium text-gray-500">Your Clients</h3>
           <Badge variant="outline" className="text-xs">
             {clients.length} total
           </Badge>
@@ -282,4 +282,3 @@ const ClientList = ({ onClientSelect }: ClientListProps) => {
 };
 
 export default ClientList;
-```
