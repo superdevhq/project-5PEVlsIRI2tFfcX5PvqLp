@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { Client } from '@/types';
 
 export function useClients() {
@@ -12,44 +12,6 @@ export function useClients() {
 
   useEffect(() => {
     if (!user) return;
-    
-    const fetchClients = async () => {
-      try {
-        setLoading(true);
-        
-        const { data, error } = await supabase
-          .from('clients')
-          .select('*')
-          .eq('trainer_id', user.id)
-          .order('name');
-          
-        if (error) {
-          throw error;
-        }
-        
-        // Transform the data to match our Client type
-        const transformedClients: Client[] = data.map(client => ({
-          id: client.id,
-          name: client.name,
-          email: client.email || '',
-          phone: client.phone || '',
-          age: client.age || 0,
-          height: client.height || 0,
-          weight: client.weight || 0,
-          goals: client.goals || '',
-          notes: client.notes || '',
-          joinDate: client.join_date,
-          profileImage: client.profile_image
-        }));
-        
-        setClients(transformedClients);
-      } catch (err: any) {
-        setError(err);
-        console.error('Error fetching clients:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
     
     fetchClients();
     
@@ -73,29 +35,66 @@ export function useClients() {
       subscription.unsubscribe();
     };
   }, [user]);
-  
-  const addClient = async (newClient: Omit<Client, 'id'>) => {
-    if (!user) return null;
+
+  const fetchClients = async () => {
+    if (!user) return;
     
     try {
-      // Transform client data to match database schema
-      const clientData = {
-        trainer_id: user.id,
-        name: newClient.name,
-        email: newClient.email,
-        phone: newClient.phone,
-        age: newClient.age,
-        height: newClient.height,
-        weight: newClient.weight,
-        goals: newClient.goals,
-        notes: newClient.notes,
-        join_date: newClient.joinDate,
-        profile_image: newClient.profileImage
-      };
+      setLoading(true);
       
       const { data, error } = await supabase
         .from('clients')
-        .insert(clientData)
+        .select('*')
+        .eq('trainer_id', user.id)
+        .order('name');
+        
+      if (error) {
+        throw error;
+      }
+      
+      // Transform the data to match our Client type
+      const transformedClients: Client[] = data.map(client => ({
+        id: client.id,
+        name: client.name,
+        email: client.email || '',
+        phone: client.phone || '',
+        age: client.age || 0,
+        height: client.height || 0,
+        weight: client.weight || 0,
+        goals: client.goals || '',
+        notes: client.notes || '',
+        joinDate: client.join_date,
+        profileImage: client.profile_image
+      }));
+      
+      setClients(transformedClients);
+    } catch (err: any) {
+      setError(err);
+      console.error('Error fetching clients:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const addClient = async (client: Omit<Client, 'id'>) => {
+    if (!user) throw new Error('User not authenticated');
+    
+    try {
+      const { data, error } = await supabase
+        .from('clients')
+        .insert({
+          name: client.name,
+          email: client.email,
+          phone: client.phone,
+          age: client.age,
+          height: client.height,
+          weight: client.weight,
+          goals: client.goals,
+          notes: client.notes,
+          join_date: client.joinDate,
+          profile_image: client.profileImage,
+          trainer_id: user.id
+        })
         .select()
         .single();
         
@@ -109,63 +108,9 @@ export function useClients() {
       throw err;
     }
   };
-  
-  const updateClient = async (id: string, updates: Partial<Client>) => {
-    if (!user) return null;
-    
-    try {
-      // Transform client data to match database schema
-      const clientData: any = {};
-      
-      if (updates.name) clientData.name = updates.name;
-      if (updates.email) clientData.email = updates.email;
-      if (updates.phone) clientData.phone = updates.phone;
-      if (updates.age) clientData.age = updates.age;
-      if (updates.height) clientData.height = updates.height;
-      if (updates.weight) clientData.weight = updates.weight;
-      if (updates.goals) clientData.goals = updates.goals;
-      if (updates.notes) clientData.notes = updates.notes;
-      if (updates.joinDate) clientData.join_date = updates.joinDate;
-      if (updates.profileImage) clientData.profile_image = updates.profileImage;
-      
-      const { data, error } = await supabase
-        .from('clients')
-        .update(clientData)
-        .eq('id', id)
-        .eq('trainer_id', user.id)
-        .select()
-        .single();
-        
-      if (error) {
-        throw error;
-      }
-      
-      return data;
-    } catch (err) {
-      console.error('Error updating client:', err);
-      throw err;
-    }
-  };
-  
-  const deleteClient = async (id: string) => {
-    if (!user) return null;
-    
-    try {
-      const { error } = await supabase
-        .from('clients')
-        .delete()
-        .eq('id', id)
-        .eq('trainer_id', user.id);
-        
-      if (error) {
-        throw error;
-      }
-      
-      return true;
-    } catch (err) {
-      console.error('Error deleting client:', err);
-      throw err;
-    }
+
+  const refreshClients = () => {
+    fetchClients();
   };
   
   return {
@@ -173,7 +118,6 @@ export function useClients() {
     loading,
     error,
     addClient,
-    updateClient,
-    deleteClient
+    refreshClients
   };
 }

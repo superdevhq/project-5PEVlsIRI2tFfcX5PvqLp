@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
+import CreateClientAccount from './CreateClientAccount';
 
 interface ClientListProps {
   onClientSelect: (client: Client) => void;
@@ -16,7 +17,7 @@ interface ClientListProps {
 
 const ClientList = ({ onClientSelect }: ClientListProps) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const { clients, loading, addClient } = useClients();
+  const { clients, loading, addClient, refreshClients } = useClients();
   const [isAddingClient, setIsAddingClient] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { toast } = useToast();
@@ -79,6 +80,10 @@ const ClientList = ({ onClientSelect }: ClientListProps) => {
     }
   };
 
+  const handleClientCreated = () => {
+    refreshClients();
+  };
+
   return (
     <div className="space-y-4">
       <div className="relative">
@@ -130,133 +135,137 @@ const ClientList = ({ onClientSelect }: ClientListProps) => {
         )}
       </div>
       
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogTrigger asChild>
-          <Button className="w-full flex items-center gap-2" variant="outline">
-            <UserPlus className="h-4 w-4" />
-            <span>Add New Client</span>
-          </Button>
-        </DialogTrigger>
-        <DialogContent className="sm:max-w-[425px]">
-          <form onSubmit={handleAddClient}>
-            <DialogHeader>
-              <DialogTitle>Add New Client</DialogTitle>
-              <DialogDescription>
-                Enter the details of your new client. You can add more information later.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="name" className="text-right">
-                  Name
-                </Label>
-                <Input
-                  id="name"
-                  value={newClient.name}
-                  onChange={(e) => setNewClient({ ...newClient, name: e.target.value })}
-                  className="col-span-3"
-                  required
-                />
+      <div className="space-y-2">
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogTrigger asChild>
+            <Button className="w-full flex items-center gap-2" variant="outline">
+              <UserPlus className="h-4 w-4" />
+              <span>Add New Client</span>
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[425px]">
+            <form onSubmit={handleAddClient}>
+              <DialogHeader>
+                <DialogTitle>Add New Client</DialogTitle>
+                <DialogDescription>
+                  Enter the details of your new client. You can add more information later.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="name" className="text-right">
+                    Name
+                  </Label>
+                  <Input
+                    id="name"
+                    value={newClient.name}
+                    onChange={(e) => setNewClient({ ...newClient, name: e.target.value })}
+                    className="col-span-3"
+                    required
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="email" className="text-right">
+                    Email
+                  </Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={newClient.email}
+                    onChange={(e) => setNewClient({ ...newClient, email: e.target.value })}
+                    className="col-span-3"
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="phone" className="text-right">
+                    Phone
+                  </Label>
+                  <Input
+                    id="phone"
+                    value={newClient.phone}
+                    onChange={(e) => setNewClient({ ...newClient, phone: e.target.value })}
+                    className="col-span-3"
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="age" className="text-right">
+                    Age
+                  </Label>
+                  <Input
+                    id="age"
+                    type="number"
+                    value={newClient.age}
+                    onChange={(e) => setNewClient({ ...newClient, age: parseInt(e.target.value) || 0 })}
+                    className="col-span-3"
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="height" className="text-right">
+                    Height (cm)
+                  </Label>
+                  <Input
+                    id="height"
+                    type="number"
+                    value={newClient.height}
+                    onChange={(e) => setNewClient({ ...newClient, height: parseInt(e.target.value) || 0 })}
+                    className="col-span-3"
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="weight" className="text-right">
+                    Weight (kg)
+                  </Label>
+                  <Input
+                    id="weight"
+                    type="number"
+                    value={newClient.weight}
+                    onChange={(e) => setNewClient({ ...newClient, weight: parseInt(e.target.value) || 0 })}
+                    className="col-span-3"
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="goals" className="text-right">
+                    Goals
+                  </Label>
+                  <Textarea
+                    id="goals"
+                    value={newClient.goals}
+                    onChange={(e) => setNewClient({ ...newClient, goals: e.target.value })}
+                    className="col-span-3"
+                    rows={2}
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="notes" className="text-right">
+                    Notes
+                  </Label>
+                  <Textarea
+                    id="notes"
+                    value={newClient.notes}
+                    onChange={(e) => setNewClient({ ...newClient, notes: e.target.value })}
+                    className="col-span-3"
+                    rows={2}
+                  />
+                </div>
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="email" className="text-right">
-                  Email
-                </Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={newClient.email}
-                  onChange={(e) => setNewClient({ ...newClient, email: e.target.value })}
-                  className="col-span-3"
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="phone" className="text-right">
-                  Phone
-                </Label>
-                <Input
-                  id="phone"
-                  value={newClient.phone}
-                  onChange={(e) => setNewClient({ ...newClient, phone: e.target.value })}
-                  className="col-span-3"
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="age" className="text-right">
-                  Age
-                </Label>
-                <Input
-                  id="age"
-                  type="number"
-                  value={newClient.age}
-                  onChange={(e) => setNewClient({ ...newClient, age: parseInt(e.target.value) || 0 })}
-                  className="col-span-3"
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="height" className="text-right">
-                  Height (cm)
-                </Label>
-                <Input
-                  id="height"
-                  type="number"
-                  value={newClient.height}
-                  onChange={(e) => setNewClient({ ...newClient, height: parseInt(e.target.value) || 0 })}
-                  className="col-span-3"
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="weight" className="text-right">
-                  Weight (kg)
-                </Label>
-                <Input
-                  id="weight"
-                  type="number"
-                  value={newClient.weight}
-                  onChange={(e) => setNewClient({ ...newClient, weight: parseInt(e.target.value) || 0 })}
-                  className="col-span-3"
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="goals" className="text-right">
-                  Goals
-                </Label>
-                <Textarea
-                  id="goals"
-                  value={newClient.goals}
-                  onChange={(e) => setNewClient({ ...newClient, goals: e.target.value })}
-                  className="col-span-3"
-                  rows={2}
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="notes" className="text-right">
-                  Notes
-                </Label>
-                <Textarea
-                  id="notes"
-                  value={newClient.notes}
-                  onChange={(e) => setNewClient({ ...newClient, notes: e.target.value })}
-                  className="col-span-3"
-                  rows={2}
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button type="submit" disabled={isAddingClient || !newClient.name}>
-                {isAddingClient ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Adding...
-                  </>
-                ) : (
-                  'Add Client'
-                )}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+              <DialogFooter>
+                <Button type="submit" disabled={isAddingClient || !newClient.name}>
+                  {isAddingClient ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Adding...
+                    </>
+                  ) : (
+                    'Add Client'
+                  )}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+        
+        <CreateClientAccount onClientCreated={handleClientCreated} />
+      </div>
     </div>
   );
 };
