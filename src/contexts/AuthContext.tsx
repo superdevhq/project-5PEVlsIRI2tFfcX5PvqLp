@@ -63,26 +63,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const checkUserType = async (userId: string) => {
     try {
-      // Check if user is a trainer
-      const { data: trainerData, error: trainerError } = await supabase
-        .from('trainers')
-        .select('*')
-        .eq('id', userId)
-        .maybeSingle();
-
-      if (trainerError) {
-        throw trainerError;
-      }
-
-      if (trainerData) {
-        setTrainer(trainerData);
-        setClient(null);
-        setUserType('trainer');
-        setLoading(false);
-        return;
-      }
-
-      // Check if user is a client
+      setLoading(true);
+      
+      // Check if user is a client first (since we're focusing on client login)
       const { data: clientData, error: clientError } = await supabase
         .from('clients')
         .select('*')
@@ -94,14 +77,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       if (clientData) {
+        console.log('User is a client:', clientData);
         setClient(clientData);
         setTrainer(null);
         setUserType('client');
+        // Store the detected user type
+        localStorage.setItem('userType', 'client');
+        setLoading(false);
+        return;
+      }
+
+      // If not a client, check if user is a trainer
+      const { data: trainerData, error: trainerError } = await supabase
+        .from('trainers')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (trainerError) {
+        throw trainerError;
+      }
+
+      if (trainerData) {
+        console.log('User is a trainer:', trainerData);
+        setTrainer(trainerData);
+        setClient(null);
+        setUserType('trainer');
+        // Store the detected user type
+        localStorage.setItem('userType', 'trainer');
       } else {
         // User is neither a trainer nor a client
+        console.log('User is neither a trainer nor a client');
         setTrainer(null);
         setClient(null);
         setUserType(null);
+        localStorage.removeItem('userType');
       }
     } catch (error) {
       console.error('Error checking user type:', error);
@@ -122,7 +132,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw error;
       }
 
-      // Store the user type in local storage for persistence
+      // We'll temporarily set the userType from the login form
+      // but it will be overridden by checkUserType based on database records
       localStorage.setItem('userType', userType);
       setUserType(userType);
 
