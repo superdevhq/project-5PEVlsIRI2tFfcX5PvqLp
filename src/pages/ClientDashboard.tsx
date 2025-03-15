@@ -159,25 +159,71 @@ export default function ClientDashboard() {
     if (!client) return;
     
     try {
-      // First get the trainer_id from the clients table
-      const { data: clientData, error: clientError } = await supabase
-        .from('clients')
-        .select('trainer_id')
-        .eq('id', client.id)
-        .single();
-
-      if (clientError) throw clientError;
+      console.log("Fetching trainer info for client:", client);
       
-      if (clientData?.trainer_id) {
+      // First check if the client object already has the trainer_id
+      if (client.trainer_id) {
+        console.log("Client has trainer_id:", client.trainer_id);
+        
         // Then get the trainer details
         const { data: trainerData, error: trainerError } = await supabase
           .from('trainers')
           .select('*')
-          .eq('id', clientData.trainer_id)
-          .single();
+          .eq('id', client.trainer_id);
 
-        if (trainerError) throw trainerError;
-        setTrainerInfo(trainerData);
+        if (trainerError) {
+          console.error("Error fetching trainer data:", trainerError);
+          throw trainerError;
+        }
+        
+        console.log("Trainer data fetched:", trainerData);
+        
+        if (trainerData && trainerData.length > 0) {
+          setTrainerInfo(trainerData[0]);
+        } else {
+          console.warn("No trainer found with ID:", client.trainer_id);
+        }
+      } else {
+        // If client doesn't have trainer_id directly, try to fetch it
+        console.log("Client doesn't have trainer_id directly, fetching from clients table");
+        
+        const { data: clientData, error: clientError } = await supabase
+          .from('clients')
+          .select('trainer_id')
+          .eq('id', client.id);
+
+        if (clientError) {
+          console.error("Error fetching client data:", clientError);
+          throw clientError;
+        }
+        
+        console.log("Client data fetched:", clientData);
+        
+        if (clientData && clientData.length > 0 && clientData[0].trainer_id) {
+          const trainerId = clientData[0].trainer_id;
+          console.log("Found trainer_id:", trainerId);
+          
+          // Then get the trainer details
+          const { data: trainerData, error: trainerError } = await supabase
+            .from('trainers')
+            .select('*')
+            .eq('id', trainerId);
+
+          if (trainerError) {
+            console.error("Error fetching trainer data:", trainerError);
+            throw trainerError;
+          }
+          
+          console.log("Trainer data fetched:", trainerData);
+          
+          if (trainerData && trainerData.length > 0) {
+            setTrainerInfo(trainerData[0]);
+          } else {
+            console.warn("No trainer found with ID:", trainerId);
+          }
+        } else {
+          console.warn("No trainer_id found for client");
+        }
       }
     } catch (error: any) {
       console.error('Error fetching trainer info:', error);
