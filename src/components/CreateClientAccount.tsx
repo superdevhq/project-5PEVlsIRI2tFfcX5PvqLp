@@ -17,7 +17,7 @@ export default function CreateClientAccount({ onClientCreated }: CreateClientAcc
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   
   const [formData, setFormData] = useState({
     name: '',
@@ -49,27 +49,49 @@ export default function CreateClientAccount({ onClientCreated }: CreateClientAcc
       return;
     }
 
+    if (!user || !session) {
+      toast({
+        title: "Authentication error",
+        description: "You must be logged in to create a client account.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       setIsLoading(true);
 
-      // 1. Create auth user account using admin functions to avoid session change
-      const { data: adminAuthResponse, error: adminAuthError } = await supabase.functions.invoke('create-client-account', {
-        body: {
-          email: formData.email,
-          password: formData.password,
-          fullName: formData.name,
-          trainerId: user?.id,
-          clientData: {
-            age: formData.age,
-            height: formData.height,
-            weight: formData.weight,
-            goals: formData.goals,
+      // Log the session token for debugging
+      console.log("Using session token:", session.access_token);
+
+      // Create auth user account using admin functions to avoid session change
+      const { data: adminAuthResponse, error: adminAuthError } = await supabase.functions.invoke(
+        'create-client-account', 
+        {
+          body: {
+            email: formData.email,
+            password: formData.password,
+            fullName: formData.name,
+            trainerId: user.id,
+            clientData: {
+              age: formData.age,
+              height: formData.height,
+              weight: formData.weight,
+              goals: formData.goals,
+            }
           }
         }
-      });
+      );
 
-      if (adminAuthError) throw adminAuthError;
-      if (!adminAuthResponse?.success) throw new Error(adminAuthResponse?.message || "Failed to create client account");
+      if (adminAuthError) {
+        console.error("Edge function error:", adminAuthError);
+        throw adminAuthError;
+      }
+      
+      if (!adminAuthResponse?.success) {
+        console.error("Response error:", adminAuthResponse);
+        throw new Error(adminAuthResponse?.message || "Failed to create client account");
+      }
 
       toast({
         title: "Client account created",

@@ -52,18 +52,27 @@ Deno.serve(async (req) => {
 
     // Verify the JWT and get the user
     const token = authHeader.replace('Bearer ', '')
+    console.log('Token received:', token.substring(0, 10) + '...')
+    
     const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token)
     
-    if (userError || !user) {
-      throw new Error('Invalid token or user not found')
+    if (userError) {
+      console.error('User error:', userError)
+      throw new Error(`Invalid token: ${userError.message}`)
     }
+    
+    if (!user) {
+      throw new Error('User not found with the provided token')
+    }
+
+    console.log('User found:', user.id)
 
     // Parse the request body
     const { email, password, fullName, trainerId, clientData } = await req.json() as RequestBody
 
     // Verify that the authenticated user is the trainer
     if (user.id !== trainerId) {
-      throw new Error('Unauthorized: You can only create clients for yourself')
+      throw new Error(`Unauthorized: You can only create clients for yourself. User ID: ${user.id}, Trainer ID: ${trainerId}`)
     }
 
     // Check if the trainer exists in the trainers table
@@ -73,7 +82,8 @@ Deno.serve(async (req) => {
       .eq('id', trainerId)
       .single()
 
-    if (trainerError || !trainerData) {
+    if (trainerError) {
+      console.log('Trainer not found, creating trainer record')
       // If trainer doesn't exist, create the trainer record
       const { error: createTrainerError } = await supabaseAdmin
         .from('trainers')
@@ -142,6 +152,7 @@ Deno.serve(async (req) => {
       }
     )
   } catch (error) {
+    console.error('Error in create-client-account:', error)
     return new Response(
       JSON.stringify({
         success: false,
