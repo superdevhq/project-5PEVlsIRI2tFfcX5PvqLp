@@ -1,11 +1,11 @@
 
 import React from 'react';
-import AppFooter from '@/components/AppFooter';
+import { Footer } from '@/components/ui/footer';
 
 interface LayoutProps {
   children: React.ReactNode;
   showFooter?: boolean;
-  footerVariant?: 'default' | 'minimal' | 'app';
+  footerVariant?: 'default' | 'slim' | 'centered';
   hideFooterOnPaths?: string[];
 }
 
@@ -32,7 +32,7 @@ const Layout = ({
       </main>
       
       {!shouldHideFooter() && (
-        <AppFooter variant={footerVariant as 'default' | 'minimal' | 'app'} />
+        <Footer variant={footerVariant} />
       )}
     </div>
   );
