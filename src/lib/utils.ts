@@ -75,39 +75,3 @@ export function formatDate(date: Date | string, format: 'short' | 'medium' | 'lo
   
   return new Intl.DateTimeFormat('en-US', options).format(dateObj);
 }
-
-/**
- * Calculates BMI (Body Mass Index) from height and weight
- * @param weight Weight in kilograms
- * @param height Height in centimeters
- * @returns BMI value as a number with 1 decimal place, or null if inputs are invalid
- */
-export function calculateBMI(weight: number, height: number): number | null {
-  // Validate inputs
-  if (!weight || !height || weight <= 0 || height <= 0) {
-    return null;
-  }
-  
-  // Convert height from cm to meters
-  const heightInMeters = height / 100;
-  
-  // Calculate BMI: weight (kg) / height² (m²)
-  const bmi = weight / (heightInMeters * heightInMeters);
-  
-  // Return with 1 decimal place
-  return parseFloat(bmi.toFixed(1));
-}
-
-/**
- * Gets BMI category based on BMI value
- * @param bmi BMI value
- * @returns Category as string
- */
-export function getBMICategory(bmi: number): string {
-  if (bmi < 18.5) return 'Underweight';
-  if (bmi < 25) return 'Normal weight';
-  if (bmi < 30) return 'Overweight';
-  if (bmi < 35) return 'Obesity (Class 1)';
-  if (bmi < 40) return 'Obesity (Class 2)';
-  return 'Obesity (Class 3)';
-}
