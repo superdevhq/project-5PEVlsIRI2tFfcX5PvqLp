@@ -72,17 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const userMetadata = user.user_metadata;
       const metadataUserType = userMetadata?.user_type as 'trainer' | 'client' | undefined;
       
-      // If we have metadata, use it for initial user type setting to avoid flicker
-      if (metadataUserType === 'trainer' || metadataUserType === 'client') {
-        setUserType(metadataUserType);
-        
-        // Pre-emptively set the appropriate role to null
-        if (metadataUserType === 'trainer') {
-          setClient(null);
-        } else {
-          setTrainer(null);
-        }
-      }
+      console.log('User metadata type:', metadataUserType);
       
       // Parallel queries for both trainer and client data
       const [trainerResponse, clientResponse] = await Promise.all([
@@ -108,18 +98,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.error('Error checking client data:', clientResponse.error);
       }
       
+      // Log the results for debugging
+      console.log('Trainer data:', trainerResponse.data);
+      console.log('Client data:', clientResponse.data);
+      
       // Determine user type based on database results
-      if (trainerResponse.data) {
-        console.log('User is a trainer based on database');
-        setTrainer(trainerResponse.data);
-        setClient(null);
-        setUserType('trainer');
-        
-        // Update metadata if it doesn't match
-        if (metadataUserType !== 'trainer') {
-          await updateUserTypeMetadata('trainer');
-        }
-      } else if (clientResponse.data) {
+      if (clientResponse.data) {
         console.log('User is a client based on database');
         setClient(clientResponse.data);
         setTrainer(null);
@@ -129,15 +113,55 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (metadataUserType !== 'client') {
           await updateUserTypeMetadata('client');
         }
-      } else {
-        // User is neither a trainer nor a client
-        console.warn('User not found in either clients or trainers table');
-        setTrainer(null);
+      } else if (trainerResponse.data) {
+        console.log('User is a trainer based on database');
+        setTrainer(trainerResponse.data);
         setClient(null);
-        setUserType(null);
+        setUserType('trainer');
+        
+        // Update metadata if it doesn't match
+        if (metadataUserType !== 'trainer') {
+          await updateUserTypeMetadata('trainer');
+        }
+      } else {
+        // User is neither a trainer nor a client in the database
+        console.warn('User not found in either clients or trainers table');
+        
+        // If we have metadata, use it as a fallback
+        if (metadataUserType === 'trainer' || metadataUserType === 'client') {
+          console.log(`Using metadata user type: ${metadataUserType} as fallback`);
+          setUserType(metadataUserType);
+          
+          // Show a toast notification about the issue
+          toast({
+            title: "Account issue detected",
+            description: `Your account is set as a ${metadataUserType} but no matching record was found. Please contact support.`,
+            variant: "destructive",
+          });
+        } else {
+          // No metadata and no database record
+          setTrainer(null);
+          setClient(null);
+          setUserType(null);
+          
+          // Show a toast notification about the issue
+          toast({
+            title: "Account issue detected",
+            description: "Your account type could not be determined. Please contact support.",
+            variant: "destructive",
+          });
+          
+          // Sign out the user to prevent access
+          await signOut();
+        }
       }
     } catch (error) {
       console.error('Error determining user type:', error);
+      toast({
+        title: "Authentication error",
+        description: "There was an error determining your account type. Please try again or contact support.",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -212,6 +236,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (error) {
         throw error;
+      }
+
+      // Set expected user type to help with initial redirection
+      if (data.user) {
+        // Check if the user exists in the expected table
+        const tableName = userType === 'trainer' ? 'trainers' : 'clients';
+        const { data: recordData, error: recordError } = await supabase
+          .from(tableName)
+          .select('id')
+          .eq('id', data.user.id)
+          .maybeSingle();
+          
+        if (recordError) {
+          console.error(`Error checking ${tableName} record:`, recordError);
+        }
+        
+        if (!recordData) {
+          // User doesn't exist in the expected table
+          await supabase.auth.signOut();
+          throw new Error(`Your account is not registered as a ${userType}. Please check your credentials or contact support.`);
+        }
       }
 
       toast({
