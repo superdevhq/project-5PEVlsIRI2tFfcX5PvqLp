@@ -74,19 +74,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       console.log('User metadata type:', metadataUserType);
       
-      // Set initial userType based on metadata for faster UI response
-      // This helps prevent the initial redirect to the wrong dashboard
-      if (metadataUserType === 'client' || metadataUserType === 'trainer') {
-        setUserType(metadataUserType);
-        
-        // Pre-emptively clear the other role data
-        if (metadataUserType === 'client') {
-          setTrainer(null);
-        } else {
-          setClient(null);
-        }
-      }
-      
       // Parallel queries for both trainer and client data
       const [trainerResponse, clientResponse] = await Promise.all([
         supabase
@@ -116,7 +103,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.log('Client data:', clientResponse.data);
       
       // Determine user type based on database results
-      // Prioritize client data over trainer data if both exist
       if (clientResponse.data) {
         console.log('User is a client based on database');
         setClient(clientResponse.data);
@@ -327,19 +313,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       setLoading(true);
       const { error } = await supabase.auth.signOut();
+      
       if (error) {
         throw error;
       }
-      
-      // Clear user data
-      setUser(null);
-      setTrainer(null);
-      setClient(null);
+
       setUserType(null);
-      
+
       toast({
         title: 'Signed out',
-        description: 'You have been signed out successfully.',
+        description: 'You have been successfully signed out.',
       });
     } catch (error: any) {
       toast({
@@ -358,14 +341,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/reset-password`,
       });
-      
+
       if (error) {
         throw error;
       }
-      
+
       toast({
         title: 'Password reset email sent',
-        description: 'Check your email for a link to reset your password.',
+        description: 'Check your email for a password reset link.',
       });
     } catch (error: any) {
       toast({
@@ -373,6 +356,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         description: error.message || 'An error occurred during password reset.',
         variant: 'destructive',
       });
+      throw error;
     } finally {
       setLoading(false);
     }
@@ -396,10 +380,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-export const useAuth = () => {
+export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
-};
+}
