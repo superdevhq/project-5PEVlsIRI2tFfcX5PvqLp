@@ -68,49 +68,67 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       setLoading(true);
       
-      // First check if user is a client
-      const { data: clientData, error: clientError } = await supabase
-        .from('clients')
-        .select('*')
-        .eq('id', user.id)
-        .maybeSingle();
-
-      if (clientError) {
-        console.error('Error checking client data:', clientError);
-      }
-
-      if (clientData) {
-        console.log('User is a client based on database');
-        setClient(clientData);
-        setTrainer(null);
-        setUserType('client');
+      // Check user metadata first for faster initial determination
+      const userMetadata = user.user_metadata;
+      const metadataUserType = userMetadata?.user_type as 'trainer' | 'client' | undefined;
+      
+      // If we have metadata, use it for initial user type setting to avoid flicker
+      if (metadataUserType === 'trainer' || metadataUserType === 'client') {
+        setUserType(metadataUserType);
         
-        // Update user metadata to match database
-        await updateUserTypeMetadata('client');
-        
-        setLoading(false);
-        return;
+        // Pre-emptively set the appropriate role to null
+        if (metadataUserType === 'trainer') {
+          setClient(null);
+        } else {
+          setTrainer(null);
+        }
       }
-
-      // If not a client, check if user is a trainer
-      const { data: trainerData, error: trainerError } = await supabase
-        .from('trainers')
-        .select('*')
-        .eq('id', user.id)
-        .maybeSingle();
-
-      if (trainerError) {
-        console.error('Error checking trainer data:', trainerError);
+      
+      // Parallel queries for both trainer and client data
+      const [trainerResponse, clientResponse] = await Promise.all([
+        supabase
+          .from('trainers')
+          .select('*')
+          .eq('id', user.id)
+          .maybeSingle(),
+        supabase
+          .from('clients')
+          .select('*')
+          .eq('id', user.id)
+          .maybeSingle()
+      ]);
+      
+      // Handle trainer data
+      if (trainerResponse.error) {
+        console.error('Error checking trainer data:', trainerResponse.error);
       }
-
-      if (trainerData) {
+      
+      // Handle client data
+      if (clientResponse.error) {
+        console.error('Error checking client data:', clientResponse.error);
+      }
+      
+      // Determine user type based on database results
+      if (trainerResponse.data) {
         console.log('User is a trainer based on database');
-        setTrainer(trainerData);
+        setTrainer(trainerResponse.data);
         setClient(null);
         setUserType('trainer');
         
-        // Update user metadata to match database
-        await updateUserTypeMetadata('trainer');
+        // Update metadata if it doesn't match
+        if (metadataUserType !== 'trainer') {
+          await updateUserTypeMetadata('trainer');
+        }
+      } else if (clientResponse.data) {
+        console.log('User is a client based on database');
+        setClient(clientResponse.data);
+        setTrainer(null);
+        setUserType('client');
+        
+        // Update metadata if it doesn't match
+        if (metadataUserType !== 'client') {
+          await updateUserTypeMetadata('client');
+        }
       } else {
         // User is neither a trainer nor a client
         console.warn('User not found in either clients or trainers table');
