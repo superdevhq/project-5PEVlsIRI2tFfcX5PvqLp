@@ -27,22 +27,19 @@ const LoadingSpinner = () => (
 // Root redirect component
 const RootRedirect = () => {
   const { user, userType, loading } = useAuth();
-  const navigate = useNavigate();
   
-  useEffect(() => {
-    // Only redirect if we have definitive information
-    if (!loading) {
-      if (user) {
-        // Use the userType from metadata first for immediate redirection
-        const destination = userType === 'trainer' ? '/dashboard' : '/client-dashboard';
-        navigate(destination, { replace: true });
-      } else {
-        navigate('/login', { replace: true });
-      }
-    }
-  }, [user, userType, loading, navigate]);
+  // If still loading, show spinner
+  if (loading) {
+    return <LoadingSpinner />;
+  }
   
-  return <LoadingSpinner />;
+  // If user is authenticated, redirect to appropriate dashboard
+  if (user) {
+    return <Navigate to={userType === 'trainer' ? '/dashboard' : '/client-dashboard'} replace />;
+  }
+  
+  // Otherwise, redirect to login
+  return <Navigate to="/login" replace />;
 };
 
 // Login route component
@@ -54,9 +51,11 @@ const LoginRoute = () => {
     return <LoadingSpinner />;
   }
   
-  // If user is authenticated, redirect to appropriate dashboard
+  // If user is authenticated, redirect to appropriate dashboard immediately
   if (user) {
-    return <Navigate to={userType === 'trainer' ? '/dashboard' : '/client-dashboard'} replace />;
+    // Use userType from metadata for immediate redirection
+    // This prevents the flicker of going to the wrong dashboard first
+    return <Navigate to={userType === 'client' ? '/client-dashboard' : '/dashboard'} replace />;
   }
   
   // Otherwise, show login page
