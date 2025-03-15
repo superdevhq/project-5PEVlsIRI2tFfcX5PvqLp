@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { Progress } from '@/components/ui/progress';
+import ClientMessagingInterface from '@/components/ClientMessagingInterface';
 import { 
   Calendar, 
   MessageSquare, 
@@ -29,11 +30,13 @@ export default function ClientDashboard() {
   const [nutritionPlans, setNutritionPlans] = useState<any[]>([]);
   const [progressRecords, setProgressRecords] = useState<any[]>([]);
   const [messages, setMessages] = useState<any[]>([]);
+  const [trainerInfo, setTrainerInfo] = useState<any>(null);
   const [loading, setLoading] = useState({
     workouts: true,
     nutrition: true,
     progress: true,
-    messages: true
+    messages: true,
+    trainer: true
   });
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -51,6 +54,7 @@ export default function ClientDashboard() {
       fetchNutritionPlans();
       fetchProgressRecords();
       fetchMessages();
+      fetchTrainerInfo();
     }
   }, [client]);
 
@@ -148,6 +152,42 @@ export default function ClientDashboard() {
       });
     } finally {
       setLoading(prev => ({ ...prev, messages: false }));
+    }
+  };
+
+  const fetchTrainerInfo = async () => {
+    if (!client) return;
+    
+    try {
+      // First get the trainer_id from the clients table
+      const { data: clientData, error: clientError } = await supabase
+        .from('clients')
+        .select('trainer_id')
+        .eq('id', client.id)
+        .single();
+
+      if (clientError) throw clientError;
+      
+      if (clientData?.trainer_id) {
+        // Then get the trainer details
+        const { data: trainerData, error: trainerError } = await supabase
+          .from('trainers')
+          .select('*')
+          .eq('id', clientData.trainer_id)
+          .single();
+
+        if (trainerError) throw trainerError;
+        setTrainerInfo(trainerData);
+      }
+    } catch (error: any) {
+      console.error('Error fetching trainer info:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load trainer information',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(prev => ({ ...prev, trainer: false }));
     }
   };
 
@@ -511,8 +551,80 @@ export default function ClientDashboard() {
             </Card>
           </TabsContent>
 
-          {/* Other tabs remain the same */}
-          {/* ... */}
+          {/* Messages Tab */}
+          <TabsContent value="messages">
+            {loading.trainer ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : !trainerInfo ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle>No Trainer Assigned</CardTitle>
+                  <CardDescription>
+                    You don't have a trainer assigned to your account yet.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-gray-500">
+                    Once a trainer is assigned to you, you'll be able to message them directly from here.
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <ClientMessagingInterface 
+                trainerId={trainerInfo.id}
+                trainerName={trainerInfo.full_name || 'Your Trainer'}
+                trainerAvatar={trainerInfo.avatar_url}
+              />
+            )}
+          </TabsContent>
+
+          {/* Other tabs would go here */}
+          <TabsContent value="workouts">
+            <Card>
+              <CardHeader>
+                <CardTitle>Your Workout Plans</CardTitle>
+                <CardDescription>
+                  View and track your assigned workout plans
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {/* Workout plans content would go here */}
+                <p>Workout plans content to be implemented</p>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="nutrition">
+            <Card>
+              <CardHeader>
+                <CardTitle>Your Nutrition Plans</CardTitle>
+                <CardDescription>
+                  View and track your assigned nutrition plans
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {/* Nutrition plans content would go here */}
+                <p>Nutrition plans content to be implemented</p>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="progress">
+            <Card>
+              <CardHeader>
+                <CardTitle>Your Progress</CardTitle>
+                <CardDescription>
+                  Track your fitness journey progress
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {/* Progress tracking content would go here */}
+                <p>Progress tracking content to be implemented</p>
+              </CardContent>
+            </Card>
+          </TabsContent>
         </Tabs>
       </main>
     </div>
