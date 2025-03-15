@@ -60,7 +60,7 @@ const LoginRoute = () => {
   }
   
   return (
-    <Layout footerVariant="minimal">
+    <Layout footerVariant="slim">
       <Login />
     </Layout>
   );
@@ -86,7 +86,7 @@ const AppRoutes = () => {
       {/* Public Routes */}
       <Route path="/login" element={<LoginRoute />} />
       <Route path="/forgot-password" element={
-        <Layout footerVariant="minimal">
+        <Layout footerVariant="slim">
           <ForgotPassword />
         </Layout>
       } />
@@ -119,7 +119,7 @@ const AppRoutes = () => {
       
       {/* Catch-all Route */}
       <Route path="*" element={
-        <Layout footerVariant="app">
+        <Layout footerVariant="centered">
           <NotFound />
         </Layout>
       } />
