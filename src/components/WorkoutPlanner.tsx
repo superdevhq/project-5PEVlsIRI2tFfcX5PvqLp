@@ -210,7 +210,7 @@ const WorkoutPlanner = ({ client }: WorkoutPlannerProps) => {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">Workout Plans</h2>
+        <h2 className="text-2xl font-bold">Workout Plans 3.0 (Beta)</h2>
         {!isCreating && (
           <div className="flex gap-2">
             <Button 
